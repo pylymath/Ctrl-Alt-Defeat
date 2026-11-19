@@ -655,18 +655,26 @@ def video_prompt(question, times, duration, task):
             f"{labels}\n{VIDEO_HINTS.get(task, '')}\n\nQuestion: {question}\n"
             "Answer in one short, direct sentence.")
 
-def sample_frames(frames, native_fps, fps, max_frames, side, dedupe=1.5):
-    """Same sampling as the app (neuroassist/ingest.py): step, keep last, drop duplicates, cap."""
+def frame_changed(a, b, mean_thresh=1.5, local_thresh=30.0):
+    """Same test as the app (neuroassist/ingest.py): whole-picture change OR a sharp local change."""
+    ga, gb = (cv2.cvtColor(x, cv2.COLOR_BGR2GRAY) for x in (a, b))
+    if np.abs(cv2.resize(ga, (32, 32)).astype(np.float32) - cv2.resize(gb, (32, 32)).astype(np.float32)).mean() >= mean_thresh:
+        return True
+    d = np.abs(cv2.resize(ga, (64, 64), interpolation=cv2.INTER_AREA).astype(np.float32)
+               - cv2.resize(gb, (64, 64), interpolation=cv2.INTER_AREA).astype(np.float32))
+    return float(np.percentile(d, 99)) > local_thresh
+
+def sample_frames(frames, native_fps, fps, max_frames, side):
+    """Same sampling as the app (neuroassist/ingest.py): step, keep last, drop unchanged, cap."""
     step = max(1, round(native_fps / fps))
     idx = [i for i in range(len(frames)) if i % step == 0]
     if idx[-1] != len(frames) - 1:
         idx.append(len(frames) - 1)
-    kept, prev = [], None
+    kept = []
     for j, i in enumerate(idx):
-        small = cv2.resize(cv2.cvtColor(frames[i], cv2.COLOR_BGR2GRAY), (32, 32)).astype(np.float32)
-        if prev is not None and j != len(idx) - 1 and np.abs(small - prev).mean() < dedupe:
+        if kept and j != len(idx) - 1 and not frame_changed(frames[kept[-1]], frames[i]):
             continue
-        kept.append(i); prev = small
+        kept.append(i)
     if len(kept) > max_frames:
         kept = [kept[s] for s in sorted(set(np.linspace(0, len(kept) - 1, max_frames).round().astype(int)))]
     out = []
@@ -809,7 +817,8 @@ def clip(rng):
         left = n - m
         q = rng.choice(["Several shapes appear and then some disappear. How many shapes are left at the end?",
                         "How many shapes are left at the end?"])
-        a = f"{n} {plural(n, shape)} appear, {m} disappear, so {left} {'is' if left == 1 else 'are'} left at the end."
+        a = (f"{n} {plural(n, shape)} appear, {m} {'disappears' if m == 1 else 'disappear'}, "
+             f"so {left} {'is' if left == 1 else 'are'} left at the end.")
     elif t == 8:                                          # ball bounces k times
         k = rng.randint(1, 5); per = rng.randint(10, 14); floor = H - 30; top = rng.randint(60, 140)
         for b in range(k):

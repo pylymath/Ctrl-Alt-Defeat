@@ -34,7 +34,8 @@ def _direct(question, frames, duration, task) -> Answer:
                   evidence={"frames_used": [round(f.t, 2) for f in frames], "mode": "direct"})
 
 
-def _timeline(question, frames, duration, task, batch: int = 4) -> Answer:
+def describe_frames(frames, batch: int = 4) -> list[dict]:
+    """One plain description per frame, in batches of `batch` images: [{t, description}]."""
     events = []
     for s in range(0, len(frames), batch):
         chunk = frames[s:s + batch]
@@ -45,6 +46,24 @@ def _timeline(question, frames, duration, task, batch: int = 4) -> Answer:
                           num_ctx=config.NUM_CTX_VIDEO, max_tokens=120 * len(chunk))
         for f, e in zip(chunk, r.get("frames", [])):
             events.append({"t": round(f.t, 2), "description": (e.get("description") or "").strip()})
+    return events
+
+
+def _frames(path, task, session):
+    fps = config.VIDEO_FPS_DENSE if task in DENSE_TASKS else config.VIDEO_FPS_SPARSE
+    return session.memo(
+        path, "frames", lambda: extract_frames(path, fps, config.VIDEO_MAX_FRAMES, config.VIDEO_SIDE),
+        fps, config.VIDEO_MAX_FRAMES, config.VIDEO_SIDE)
+
+
+def timeline(path, session) -> tuple[list[dict], float]:
+    """Frame-by-frame descriptions of a whole clip (sparse sampling), cached per file."""
+    frames, duration = _frames(path, "describe", session)
+    return session.memo(path, "timeline", lambda: describe_frames(frames), len(frames)), duration
+
+
+def _timeline(question, frames, duration, task, batch: int = 4) -> Answer:
+    events = describe_frames(frames, batch)
     log = "\n".join(f"[{e['t']:.1f}s] {e['description']}" for e in events)
     r = llm.chat_json(config.TEXT_MODEL,
                       f"Timeline of a {duration:.1f}-second video, one line per sampled frame:\n{log}\n\n"
@@ -56,10 +75,7 @@ def _timeline(question, frames, duration, task, batch: int = 4) -> Answer:
 
 def run(question, files, route, session) -> Answer:
     path = files[0]
-    fps = config.VIDEO_FPS_DENSE if route.task in DENSE_TASKS else config.VIDEO_FPS_SPARSE
-    frames, duration = session.memo(
-        path, "frames", lambda: extract_frames(path, fps, config.VIDEO_MAX_FRAMES, config.VIDEO_SIDE),
-        fps, config.VIDEO_MAX_FRAMES, config.VIDEO_SIDE)
+    frames, duration = _frames(path, route.task, session)
     mode = config.VIDEO_MODE
     if mode == "auto":
         mode = "direct" if len(frames) <= config.VIDEO_DIRECT_MAX_FRAMES else "timeline"

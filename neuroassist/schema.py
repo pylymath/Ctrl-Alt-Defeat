@@ -18,7 +18,11 @@ class Answer:
     evidence: dict[str, Any] = field(default_factory=dict)   # quote / boxes / timeline / tests
     confidence: float | None = None
     abstain: bool = False                              # True = "the input does not contain this"
-    card: dict[str, Any] | None = None                 # filled by the accessibility layer
+    card: dict[str, Any] | None = None                 # summary card (accessibility layer)
+    flashcards: list[dict] | None = None               # [{q, a}] (accessibility layer)
+    captions: str | None = None                        # WebVTT text (accessibility layer)
+    speech_path: str | None = None                     # WAV of the answer read aloud
+    steps: list[dict] = field(default_factory=list)    # what ran, in order: step, model, ms, ok
     route: Route | None = None
     timings_ms: dict[str, float] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)     # warnings shown to the team, not the user

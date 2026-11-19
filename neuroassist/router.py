@@ -35,10 +35,10 @@ DEFAULT_TASK = {"image": "describe", "video": "describe", "audio": "qa",
                 "document": "qa", "code": "qa", "chat": "qa"}
 
 MODIFIERS = {
-    "tts":        r"read (it |this )?(aloud|out)|out loud|say it|narrat|speak (it|this)",
-    "flashcards": r"flash ?cards?|quiz me",
-    "captions":   r"captions?|subtitles?|\.vtt|audio description",
-    "card":       r"summar|simplif|key points|break (it|this) down",
+    "tts":        r"read (it |this |that )?(aloud|out)|out loud|say it|narrat|speak (it|this)",
+    "flashcards": r"flash ?cards?|quiz me|study (guide|pack)|revision cards?",
+    "captions":   r"captions?|subtitles?|\.vtt|audio description|accessible description|for (a |someone who is )?(blind|deaf|hard of hearing)",
+    "card":       r"summar|simplif|key points|break (it|this) down|study (guide|pack|notes)|explain (it|this) simply",
 }
 
 

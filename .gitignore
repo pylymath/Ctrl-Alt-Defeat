@@ -20,3 +20,10 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# Model weights (GBs; GitHub rejects files over 100 MB). Share via Drive or Hugging Face instead.
+models/
+*.gguf
+*.safetensors
+*.bin
+Modelfile

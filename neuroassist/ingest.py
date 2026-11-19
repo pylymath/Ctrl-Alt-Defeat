@@ -73,9 +73,21 @@ class Frame:
     jpeg: bytes
 
 
-def extract_frames(path: str | Path, fps: float, max_frames: int, side: int,
-                   dedupe: float = 1.5) -> tuple[list[Frame], float]:
-    """Sample at `fps`, always keep first and last frame, drop near-duplicates, cap the count.
+def frame_changed(a, b, mean_thresh: float = 1.5, local_thresh: float = 30.0) -> bool:
+    """True if frame b differs from a: either the whole picture shifts (mean change on a 32x32
+    thumbnail), or a small region changes sharply (99th-percentile change on 64x64), e.g. one small
+    shape appearing or a digit changing. Using only the mean misses those (p_vid_001 has a 0.77)."""
+    import cv2
+    ga, gb = (cv2.cvtColor(x, cv2.COLOR_BGR2GRAY) for x in (a, b))
+    if np.abs(cv2.resize(ga, (32, 32)).astype(np.float32) - cv2.resize(gb, (32, 32)).astype(np.float32)).mean() >= mean_thresh:
+        return True
+    d = np.abs(cv2.resize(ga, (64, 64), interpolation=cv2.INTER_AREA).astype(np.float32)
+               - cv2.resize(gb, (64, 64), interpolation=cv2.INTER_AREA).astype(np.float32))
+    return float(np.percentile(d, 99)) > local_thresh
+
+
+def extract_frames(path: str | Path, fps: float, max_frames: int, side: int) -> tuple[list[Frame], float]:
+    """Sample at `fps`, always keep first and last frame, drop unchanged frames, cap the count.
     Streams the video so a 30 s 720p clip never sits in RAM whole."""
     import cv2
     cap = cv2.VideoCapture(str(path))
@@ -97,14 +109,12 @@ def extract_frames(path: str | Path, fps: float, max_frames: int, side: int,
         picked.append((last[0], _resize(last[1], side)))
     duration = (last[0] + 1) / native
 
-    kept, prev = [], None
+    kept = []
     for j, (idx, img) in enumerate(picked):
-        small = cv2.resize(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), (32, 32)).astype(np.float32)
         is_last = j == len(picked) - 1
-        if prev is not None and not is_last and np.abs(small - prev).mean() < dedupe:
+        if kept and not is_last and not frame_changed(kept[-1][1], img):
             continue
         kept.append((idx, img))
-        prev = small
     if len(kept) > max_frames:
         sel = sorted(set(np.linspace(0, len(kept) - 1, max_frames).round().astype(int)))
         kept = [kept[s] for s in sel]

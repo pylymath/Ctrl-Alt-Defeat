@@ -3,8 +3,8 @@
 Offline multimodal assistant for students with ADHD and dyslexia. One interface for photos,
 audio, documents, code and short videos; every model runs locally through Ollama, with no internet.
 
-**Status:** core pipeline, router and eval script done. UI, accessibility layer (cards, TTS,
-captions) and the video-description workflow are next.
+**Run it:** `python -m neuroassist.ui` opens the app at http://127.0.0.1:7860 (local only, Gradio
+analytics off).
 
 ## How it works
 
@@ -12,8 +12,36 @@ captions) and the video-description workflow are next.
 upload + question → ingest (detect type from bytes, normalize, hash)
                   → router (rules first, model fallback) → Route(kind, task, modifiers)
                   → tool for that input type → Answer(answer, evidence, confidence, abstain)
-                  → accessibility layer (next): answer first, card, TTS, captions
+                  → accessibility steps: summary card, flashcards, captions, read aloud
 ```
+
+### Multi-step requests
+
+`pipeline.answer()` turns each request into a short plan and records every step (model, time) in
+`Answer.steps`; the UI shows it under "How I got this answer".
+
+| Request | Steps, in order |
+|---|---|
+| "What's the main argument? Read it aloud." (PDF) | doc QA (text model) → read aloud (Windows speech) |
+| "What does the lecturer say about X?" (audio) | Whisper → doc QA over the transcript (text model) |
+| "Summarize this and quiz me" (PDF) | summary (card model) → card → flashcards (card model, checked against the PDF) |
+| "Give an audio description of this for someone who is blind" (video) | vision answer → per-frame descriptions (vision) → Whisper on the clip's audio → step-by-step narration (text model) → WebVTT captions |
+| "How many people are there? What does the sign say?" (photo) | split on `?` → one vision call per question → numbered answers |
+| Two or more files | one tool per file → combine (text model) |
+| A long video | frame descriptions in batches (vision) → answer from the timeline (text model) |
+
+Output steps come from words in the question (`router.MODIFIERS`: "summarize", "quiz me", "captions",
+"read aloud"...) or from the "Also give me" boxes in the UI. They only change presentation: card points
+with numbers the source never mentions are dropped, and flashcards whose answer is not in the source are
+dropped. The eval calls `answer(..., extras=False)`, so it scores only the answer itself.
+
+### Accessibility in the UI
+
+Answer first in large text, then the card; flashcards that flip on tap; read aloud at an adjustable speed
+(Windows' built-in voices, no download); captions as a `.vtt` file; font (standard, dyslexia-friendly
+spacing, large print), text size, line spacing and background tint (white, cream, pale blue, dark) restyle
+the current answer instantly. Badges say when an answer was checked against the file, or that the file
+does not contain it.
 
 | Input | Model | Where | Guardrail / trick |
 |---|---|---|---|
@@ -71,28 +99,41 @@ The app itself never reads `answers.json`.
 Settings worth comparing: `COUNT_MODE` (`boxes` / `direct`), `VIDEO_MODE` (`direct` / `timeline`),
 `TEXT_MODEL` (e.g. `qwen2.5:3b`), `VIDEO_FPS_DENSE`, `WHISPER_MODEL`.
 
-## Using the Colab fine-tune (card writer)
+## Using the Colab fine-tunes
 
-The fine-tuned model only writes the accessible summary cards; facts always come from the base models.
+The notebooks in `finetune/` save everything to Google Drive under `neuroassist-finetunes/`. On the Legion:
 
-1. Copy the `.gguf` from Drive into a folder on the Legion, next to a file named `Modelfile`. If Unsloth
-   did not create one, use this (Qwen2.5 chat format):
+1. **Download** that Drive folder, keeping its layout, e.g. to `C:\models\neuroassist-finetunes`.
+   Only these files are needed (skip `lora/`, `hf/` and any f16 `.gguf` to save space):
+
+   | Folder | Files the app needs | Loaded by |
+   |---|---|---|
+   | `neuro-card-writer/` | `*q4_k_m.gguf` + `Modelfile` | Ollama |
+   | `neuro-coder/` | `*q4_k_m.gguf` + `Modelfile` | Ollama |
+   | `neuro-doc-qa/` | `*q4_k_m.gguf` + `Modelfile` | Ollama |
+   | `neuro-vision/merged/` | the whole folder (safetensors + `Modelfile`) | Ollama, quantized on import |
+   | `neuro-whisper-small/ct2/` | the whole folder (`model.bin`, tokenizer, configs) | faster-whisper, directly |
+
+   Whisper is not a GGUF: `ct2/` is the CTranslate2 int8 copy the app loads; `hf/` is the plain
+   Hugging Face backup and is not used.
+2. **Import** into Ollama: `.\scripts\import_finetunes.ps1 -ModelsDir "C:\models\neuroassist-finetunes"`.
+   It skips anything missing and prints the `$env:` lines that switch the app to each fine-tune.
+3. **Keep a fine-tune only if it wins on the practice pack.** Run the eval once with the stock models
+   and once with the fine-tune, for the modality it affects, and compare the two `eval/results/*.md`:
    ```
-   FROM ./neuro_assist_model-q4_k_m.gguf
-   TEMPLATE """{{- if .System }}<|im_start|>system
-   {{ .System }}<|im_end|>
-   {{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
-   {{ .Content }}<|im_end|>
-   {{ end }}<|im_start|>assistant
-   """
-   PARAMETER stop "<|im_end|>"
-   PARAMETER stop "<|im_start|>"
-   PARAMETER temperature 0.2
+   python eval/run_eval.py --modality code --tag stock
+   $env:NEUROASSIST_CODE_MODEL="neuro-coder"
+   python eval/run_eval.py --modality code --tag finetuned
    ```
-2. `ollama create neuro-assist -f Modelfile`
-3. `$env:NEUROASSIST_CARD_MODEL="neuro-assist"`
+   Doc QA → `--modality text`; vision → `--modality image video` (with the COUNT/VIDEO settings the
+   script prints); Whisper → `--modality audio`. The card writer only affects summaries; check those by eye.
+4. **Make the winners permanent** with `setx NAME "value"` (applies to new terminal windows), then rerun
+   `python -m neuroassist.prefetch` to load-check everything.
 
-## Quick manual test
+Memory: the main vision model and `TEXT_MODEL` stay loaded; the coder and card writer are loaded only when
+used. With the doc-QA fine-tune as `TEXT_MODEL` that is two resident models (about 6 GB of VRAM).
+
+## Quick manual test (no UI)
 
 ```powershell
 python -m neuroassist "How many people are in this image?" C:\path\to\photo.jpg

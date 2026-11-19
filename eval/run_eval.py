@@ -86,7 +86,7 @@ def main():
         ref = refs[item["id"]]
         t = time.perf_counter()
         try:
-            res = answer(item["question"], files, session=Session())     # fresh session: no leakage
+            res = answer(item["question"], files, session=Session(), extras=False)     # fresh session: no leakage
             ok, sc, how = score(item, ref, res, args.data)
             err, pred, task, abst = "", res.answer, res.route.task if res.route else "", res.abstain
         except Exception as e:
