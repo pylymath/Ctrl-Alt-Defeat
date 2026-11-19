@@ -1,0 +1,22 @@
+# Practice / judging data must never be committed (practice pack README, "Rules for this data").
+data/
+archive*/
+practice_pack/
+*.wav
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.pdf
+# UI images you create yourselves go in assets/ and are allowed.
+!assets/**
+
+# Eval output contains reference answers copied from answers.json.
+eval/results/
+
+# Python / tooling
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env

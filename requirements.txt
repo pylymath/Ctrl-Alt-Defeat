@@ -1,0 +1,8 @@
+ollama>=0.6
+numpy
+opencv-python-headless
+pypdf
+faster-whisper
+# Sound identification (AST on AudioSet). Pulls torch; skip it if you only need speech.
+transformers
+torch
