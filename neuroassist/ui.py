@@ -77,8 +77,12 @@ footer { display: none !important; }
 
 /* header */
 .na-head { padding: 18px 4px 6px; }
-.na-head h1 { font-family: var(--na-serif); font-weight: 500; font-size: 2.1rem; letter-spacing: -.01em; margin: 0;
-              color: var(--na-ink); }
+.na-head h1 { font-family: var(--na-serif); font-weight: 700; font-size: 3rem; line-height: 1.05; letter-spacing: -.025em;
+              margin: 0; background: linear-gradient(100deg, #2F2B26 10%, #4E6B5E 95%); -webkit-background-clip: text;
+              background-clip: text; color: transparent; }
+.dark .na-head h1 { background: linear-gradient(100deg, #F3EFE8 10%, #A9C9B9 95%); -webkit-background-clip: text;
+                    background-clip: text; }
+.na-head p { font-size: 1.05rem !important; }
 .na-head p { margin: 4px 0 0; color: var(--na-muted); font-size: 1rem; }
 .na-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .na-pill { font-size: .78rem; padding: 3px 10px; border-radius: 999px; background: var(--na-sage-soft); color: var(--na-ink); }
@@ -153,6 +157,9 @@ mark.na-hl { background: #F3E2B8; color: #2F2B26; border-radius: 4px; padding: 0
 /* bionic reading: normal weight everywhere, so the bold word-starts actually stand out */
 .na-bio, .na-bio * { font-weight: 400 !important; }
 .na-bio b { font-weight: 700 !important; }
+/* ...and on the rest of the page (bionic.js wraps labels, buttons, tabs, chips, placeholders in .pb) */
+.percie-bionic .pb, .percie-bionic .pb-ph { font-weight: 400 !important; }
+.percie-bionic .pb b, .percie-bionic .pb-ph b { font-weight: 700 !important; }
 """
 
 
@@ -935,9 +942,12 @@ def build() -> gr.Blocks:
         files.change(file_choices, files, which)
         inputs = [question, files, which, outputs, rate, *look, bionic, ws_name, session]
         results = [result, speech, captions, details, last, session]
-        ask_btn.click(ask, inputs, results)
-        question.submit(ask, inputs, results)
-        catch_btn.click(catch_me_up, [when, *inputs[1:]], results)
+        # After an answer arrives, draw it again with the reading settings as they are NOW (they may have
+        # been changed while the model was still working).
+        redraw = dict(fn=render, inputs=[last, *look, bionic], outputs=result, show_progress="hidden")
+        ask_btn.click(ask, inputs, results).then(**redraw)
+        question.submit(ask, inputs, results).then(**redraw)
+        catch_btn.click(catch_me_up, [when, *inputs[1:]], results).then(**redraw)
         for btn, (_, text) in list(zip(quick, QUICK)) + list(zip(more_quick, MORE_QUICK)):
             btn.click(lambda t=text: t, None, question)
 
@@ -977,7 +987,17 @@ def build() -> gr.Blocks:
             ctl.change(render_easier, easy_in, easy_out, show_progress="hidden")
             ctl.change(render_plan, plan_in, plan, show_progress="hidden")
             ctl.change(render_resume, resume_in, resume, show_progress="hidden")
+        # ...and the rest of the page (labels, buttons, tabs, chips, placeholders), in the browser
+        bionic.change(None, bionic, None, js="(v) => { if (window.percieBionic) window.percieBionic(v); }")
     return demo
+
+
+HEAD = "<script>" + (Path(__file__).with_name("bionic.js")).read_text(encoding="utf-8") + "</script>"
+
+
+def launch(demo: gr.Blocks, **kw):
+    """One place for the look: theme, CSS and the page-wide bionic script."""
+    return demo.launch(css=CSS, theme=theme(), head=HEAD, **kw)
 
 
 def _warm():
@@ -991,7 +1011,7 @@ def main():
     import sys
     lan = "--lan" in sys.argv
     threading.Thread(target=_warm, daemon=True).start()
-    build().launch(server_name="0.0.0.0" if lan else "127.0.0.1", inbrowser=True, css=CSS, theme=theme())
+    launch(build(), server_name="0.0.0.0" if lan else "127.0.0.1", inbrowser=True)
 
 
 if __name__ == "__main__":

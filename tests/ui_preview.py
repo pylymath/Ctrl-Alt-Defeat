@@ -53,4 +53,4 @@ def fake_answer(question, files=(), session=None, **kw):
 
 ui.answer = fake_answer
 if __name__ == "__main__":
-    ui.build().launch(server_name="127.0.0.1", server_port=7861, inbrowser=False, css=ui.CSS, theme=ui.theme())
+    ui.launch(ui.build(), server_name="127.0.0.1", server_port=7861, inbrowser=False)
