@@ -345,6 +345,12 @@ out3 = ui.sync_files({"text": "", "files": [str(DEMO / "diagram.png")]}, [], "La
 check("new materials set the old plan aside (no stale steps)", out3[6] is None)
 out4 = ui.sync_files({"text": "", "files": [str(DEMO / "assignment.txt"), str(DEMO / "voice_note.wav")]}, [], "Lab 4")
 check("same materials keep the plan", out4[6] is not None)
+out5 = ui.sync_files({"text": "def f(x):\n    return x", "files": []}, [], None)
+check("pasted code shows the code actions", out5[3]["visible"] is True)
+out6 = ui.sync_files({"text": "What must I submit?", "files": []}, [], None)
+check("a normal question does not", out6[3]["visible"] is False)
+fc = ui.render({"answer": "Here are flashcards", "route": {"task": "rewrite"}, "evidence": {}, "flashcards": [{"q": "What file?", "a": "lab4.py"}]}, "Standard", 18, 1.7, "Auto")
+check("flashcards are flip cards (front and back are separate sides)", "na-fc-front" in fc and "na-fc-back" in fc and "<details" not in fc)
 out2 = ui.sync_files({"text": "x", "files": [str(DEMO / "voice_note.wav")]}, [])
 check("catch-up action appears for a recording", out2[2]["visible"] is True and out2[3]["visible"] is False)
 audio.transcribe = lambda path: TRANSCRIPT

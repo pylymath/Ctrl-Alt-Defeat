@@ -79,6 +79,17 @@ CSS = """
 .na-right > *, .na-right .gr-group > *, .na-right .gr-group > * > * { flex-shrink: 0 !important; }
 .na-right .gr-group { overflow: visible !important; }
 /* attached files as tags */
+/* flip cards: one side at a time */
+.na-fc { display: block; position: relative; cursor: pointer; border-radius: 14px; padding: 16px 18px; margin: 10px 0;
+         border: 1px solid var(--na-line); min-height: 3.2em; user-select: none; }
+.na-fc input { position: absolute; opacity: 0; pointer-events: none; }
+.na-fc small { display: block; font-size: .72em; opacity: .55; margin-bottom: 6px; letter-spacing: .03em; }
+.na-fc .na-fc-front, .na-fc .na-fc-back { display: block; }
+.na-fc .na-fc-back { display: none; }
+.na-fc input:checked ~ .na-fc-front { display: none; }
+.na-fc input:checked ~ .na-fc-back { display: block; }
+.na-fc:has(input:checked) { border-color: #A9C2B5; }
+
 /* clickable step checklist: ticked steps are crossed out */
 .na-steplist label { border-radius: 10px !important; padding: 8px 12px !important; width: 100%; }
 .na-steplist label:has(input:checked) span { text-decoration: line-through; opacity: .55; }
@@ -411,10 +422,14 @@ def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bion
         out.append("<p style='margin-top:14px'>Nothing vague or figurative found.</p>")
 
     if res.get("flashcards"):
+        # Real flip cards: the front shows ONLY the question; tap to turn it over and see ONLY the answer.
+        n = len(res["flashcards"])
         out.append("<div class='na-flash' style='margin-top:18px'><h3 style='margin:0'>Flashcards "
-                   "<span style='font-weight:400;font-size:.8em'>(tap to flip)</span></h3>")
-        out += [f"<details style='background:{surface}'><summary>{T(c['q'])}</summary>{T(c['a'])}</details>"
-                for c in res["flashcards"]]
+                   "<span style='font-weight:400;font-size:.8em'>(tap a card to flip it)</span></h3>")
+        out += [f"<label class='na-fc' style='background:{surface}'><input type='checkbox'>"
+                f"<span class='na-fc-front'><small>Card {i} of {n} · question</small>{T(c['q'])}</span>"
+                f"<span class='na-fc-back'><small>Card {i} of {n} · answer</small>{T(c['a'])}</span></label>"
+                for i, c in enumerate(res["flashcards"], 1)]
         out.append("</div>")
     elif res.get("flashcards") == []:
         out.append("<p style='margin-top:14px'>No flashcards: none could be checked against the source.</p>")
@@ -881,12 +896,32 @@ ACTIONS = {   # label: (kind, question)
     "Catch me up": ("catchup", None),
     "Run the code": ("ask", "Explain this code and run it."),
     "Fix the code": ("ask", "Fix this code."),
+    "Write the code": ("write", None),
 }
 CORE = ["Explain simply", "Key points", "Make it easier", "What does it mean?", "Quiz me"]
-WHEN_RECORDING, WHEN_CODE = ["Catch me up"], ["Run the code", "Fix the code"]
+WHEN_RECORDING, WHEN_CODE = ["Catch me up"], ["Run the code", "Fix the code", "Write the code"]
+
+CODE_TEXT = re.compile(r"^\s*(def \w+\s*\(|class \w+|import \w|from [\w.]+ import |for .+:\s*$|while .+:\s*$|"
+                       r"print\(|return\b|>>> )", re.M)
+CODE_WORDS = re.compile(r"\b(code|function|script|program|python|def)\b", re.I)
+
+
+def looks_like_code(text: str) -> bool:
+    return bool(text) and ("```" in text or bool(CODE_TEXT.search(text)))
+
+
+_kinds_cache: dict = {}
 
 
 def _file_kinds(paths):
+    key = tuple(paths)
+    if key not in _kinds_cache:
+        _kinds_cache.clear()
+        _kinds_cache[key] = _file_kinds_uncached(paths)
+    return _kinds_cache[key]
+
+
+def _file_kinds_uncached(paths):
     from .ingest import sniff
     from .tools.code_explain import find_snippets
     has_av = has_code = False
@@ -949,8 +984,12 @@ def sync_files(box, current, ws_name=None):
         raw = [f for f in raw if f not in voice]
         box_out = {"text": f"{(box.get('text') or '').strip()} {words}".strip(), "files": raw}
     paths = _paths(raw)
+    text = (box_out["text"] if voice else box.get("text")) or ""
+    # Code actions show for a file with code AND for code (or a request to write code) typed or pasted in the box.
+    show_code = looks_like_code(text) or bool(CODE_WORDS.search(text))
     if paths == (current or []):
-        return gr.skip(), gr.skip(), gr.skip(), gr.skip(), box_out, gr.skip(), gr.skip()
+        return (gr.skip(), gr.skip(), gr.skip(), gr.update(visible=show_code or _file_kinds(paths)[1]), box_out,
+                gr.skip(), gr.skip())
     # New materials: a plan made from other files is set aside (still saved, openable from the sidebar),
     # so Do and Resume never show stale steps. Do makes a fresh plan when opened.
     ws_out = gr.skip() if (not paths or _plan_matches(ws_name, paths)) else None
@@ -958,7 +997,8 @@ def sync_files(box, current, ws_name=None):
     names = [Path(p).name for p in paths]
     which = gr.update(choices=names + ([ALL] if len(names) > 1 else []) + [NONE],
                       value=names[0] if names else NONE, visible=len(names) > 1)
-    return (paths, which, gr.update(visible=has_av), gr.update(visible=has_code), box_out, file_tags(paths), ws_out)
+    return (paths, which, gr.update(visible=has_av), gr.update(visible=has_code or show_code), box_out,
+            file_tags(paths), ws_out)
 
 
 def act(label, box, files, which, rate, font, size, spacing, bg, bionic, ws_name, session, read_aloud):
@@ -966,6 +1006,16 @@ def act(label, box, files, which, rate, font, size, spacing, bg, bionic, ws_name
     kind, question = ACTIONS[label]
     outputs = ["Read aloud"] if read_aloud else []
     typed = ((box or {}).get("text") or "").strip()
+    if label in ("Run the code", "Fix the code") and looks_like_code(typed):
+        # Code pasted in the box wins over attached files: run / fix exactly what the student pasted.
+        code = typed if "```" in typed else f"```python\n{typed}\n```"
+        return ask(f"{question}\n{code}", [], NONE, outputs, rate, font, size, spacing, bg, bionic, ws_name, session)
+    if kind == "write":
+        if not typed:
+            raise gr.Error("Type what the function should do in the box (or paste its def line with a few "
+                           ">>> examples), then press Write the code.")
+        prompt = typed if re.search(r"\bdef \w+\s*\(", typed) else f"Write a Python function: {typed}"
+        return ask(prompt, [], NONE, outputs, rate, font, size, spacing, bg, bionic, ws_name, session)
     if kind == "ask":
         return ask(question, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session)
     if kind == "catchup":   # a time typed in the box ("12:40") is used; otherwise the last 5 minutes

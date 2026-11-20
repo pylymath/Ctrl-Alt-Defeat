@@ -73,6 +73,11 @@ def make_flashcards(source: str, n: int = 6) -> list[dict]:
              if isinstance(c, dict) and c.get("q") and c.get("a")]
     cards = [c for c in cards if len(c["a"]) > 1 and not re.search(r"[-–—:,(]\s*$", c["a"])
              and c["q"].rstrip().endswith("?")]          # drop cut-off or malformed cards
+    for c in cards:                                       # never give the answer away on the front
+        if _norm(c["a"]) and _norm(c["a"]) in _norm(c["q"]):
+            c["q"] = ""
+        c["q"] = re.split(r"\s+(?:answer|a)\s*[:\-–]\s*", c["q"], maxsplit=1, flags=re.I)[0].strip()
+    cards = [c for c in cards if c["q"].endswith("?")]
     unique, seen_q, seen_a = [], set(), set()             # small models repeat cards: keep each once
     for c in cards:
         q, a = _norm(c["q"]), _norm(c["a"])

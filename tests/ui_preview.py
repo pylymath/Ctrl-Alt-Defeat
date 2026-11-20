@@ -37,6 +37,13 @@ def _code_demo(question):
 
 
 def fake_answer(question, files=(), session=None, **kw):
+    if "flashcard" in question.lower():
+        a = Answer("Here are flashcards to quiz yourself. Tap a card to see the answer.")
+        a.route = Route("document", "rewrite", ["flashcards"], "rules")
+        a.flashcards = [{"q": "What file must you submit?", "a": "lab4.py"},
+                        {"q": "What window size should you start with?", "a": "Three"},
+                        {"q": "When is the lab due, according to the PDF?", "a": "Friday at 5 pm"}]
+        return a
     if "code" in question.lower():
         return _code_demo(question)
     a = Answer("You must submit lab4.py with a function called moving_average, a plot saved as lab4_plot.png, "
