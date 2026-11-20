@@ -1,12 +1,12 @@
-# Presenting NeuroAssist: two separate talks
+# Presenting Percie: two separate talks
 
 - **Round 1 (5 min, every team): breadth.** One assignment, all five input types, and the signature moment.
-- **Final (15 min, shortlisted teams): depth.** A different story ("a week with NeuroAssist"), different
+- **Final (15 min, shortlisted teams): depth.** A different story ("a week with Percie"), different
   interactions, proof it's offline, how it works, the evidence, and the limits. **Nothing from Round 1 is repeated**
   except one 10-second callback.
 
 **Roles:** one **Driver** at the keyboard (clicks, doesn't talk) and one or two **Speakers** (talk, don't click).
-**The line to remember:** *"NeuroAssist helps students understand their materials, get started, and get back on
+**The line to remember:** *"Percie helps students understand their materials, get started, and get back on
 track, all on this laptop."*
 
 Files are in `assets\demo\`. We made them all ourselves:
@@ -33,14 +33,14 @@ Upload: `assignment.txt`, `diagram.png`, `voice_note.wav`, `process.mp4`. **Help
 
 | Time | Driver clicks | Speaker says |
 |---|---|---|
-| **0:00** | Nothing; the app is on screen | "Many of us lose track of what an assignment really wants, or lose our place in a lecture. That isn't a reading problem; it's a connecting problem. NeuroAssist connects your materials, gives you a first step, and gets you back on track, offline." |
+| **0:00** | Nothing; the app is on screen | "Many of us lose track of what an assignment really wants, or lose our place in a lecture. That isn't a reading problem; it's a connecting problem. Percie connects your materials, gives you a first step, and gets you back on track, offline." |
 | **0:30** | **Understand**, *Ask about* `assignment.txt` → `What must I submit?` → open **How I got this answer** | "Text: it answers only from your file and shows the sentence it used." |
 | **0:50** | `How many references are required?` | "When the file doesn't say, it says so: *Not in your file*. It never makes an answer up." |
 | **1:05** | *Ask about* `diagram.png` → `What do the arrows connect?` | "Images: a diagram from the board, explained." |
 | **1:30** | *Ask about* `voice_note.wav` → `What sound is at the end?` | "Audio: it identifies sounds as well as speech. That's a bell." |
 | **1:50** | *Ask about* `process.mp4` → `What happens first, and what happens next?` | "Video: what happened, in order." |
 | **2:15** | **Do** → **Write code for a step** → paste the prompt below → **Write it and check the examples** | "Code: it writes the function and runs the examples in your prompt. 3 of 3 pass, which means it passes these examples, not that it's proven correct." |
-| **2:50** | Scroll to **What your files say** → the **Check both: Friday vs Thursday** box | "This is the core feature. The assignment says Friday. The TA's voice note says Thursday. NeuroAssist found both, shows exactly where each came from, and doesn't pick one for you." |
+| **2:50** | Scroll to **What your files say** → the **Check both: Friday vs Thursday** box | "This is the core feature. The assignment says Friday. The TA's voice note says Thursday. Percie found both, shows exactly where each came from, and doesn't pick one for you." |
 | **3:25** | **Make this smaller** on the first step → tick **Focus mode** → **Done** | "Too big to start? Make it smaller. Focus mode shows one step at a time." |
 | **3:55** | **Resume** → **Where was I?** | "Come back tomorrow: your last step, your next step, and the question you still need to ask. All read from what you saved. Nothing is guessed." |
 | **4:25** | Results slide | "All five input types, one laptop, no internet. We tested every model choice and kept only what measured better. Thank you." |
@@ -61,7 +61,7 @@ def moving_average(values, window):
 
 ---
 
-# FINAL (15 minutes): "A week with NeuroAssist"
+# FINAL (15 minutes): "A week with Percie"
 
 A different story with different interactions. Upload **all five** files: `lecture.wav`, `assignment.txt`,
 `diagram.png`, `voice_note.wav`, `process.mp4`. Backstage, **Help me start** as `Week demo`, with "Also connect

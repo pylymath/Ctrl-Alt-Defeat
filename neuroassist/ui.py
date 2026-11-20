@@ -1,4 +1,4 @@
-"""NeuroAssist web UI (runs locally, nothing leaves the laptop).
+"""Percie web UI (runs locally, nothing leaves the laptop).
 
     python -m neuroassist.ui          # opens http://127.0.0.1:7860
     python -m neuroassist.ui --lan    # also reachable from a phone on the same Wi-Fi (inference stays here)
@@ -535,7 +535,7 @@ def _req_html(r: dict, T, surface: str) -> str:
                    f"<span class='na-status'>({_esc(l['why'])})</span></div>")
     for c in r.get("conflicts") or []:
         out.append(f"<div class='na-conflict'>Check both, they differ: {_esc(c)}. "
-                   "NeuroAssist does not decide which one is right; ask your teacher.</div>")
+                   "Percie does not decide which one is right; ask your teacher.</div>")
     return "".join(out) + "</li>"
 
 
@@ -570,7 +570,7 @@ def render_plan(ws_name, focus, font, size, spacing, bg, bionic=False) -> str:
             out.append("<p class='na-focus'>All steps done. Nice work.</p>")
         return "".join(out) + "</div>"
 
-    out.append("<div class='na-section'>Suggested steps</div><div class='na-suggest'>Suggested by NeuroAssist, not stated in your files. "
+    out.append("<div class='na-section'>Suggested steps</div><div class='na-suggest'>Suggested by Percie, not stated in your files. "
                "Add your own or make any of them smaller.</div>")
     if not vis:
         out.append("<p>No steps yet.</p>")
@@ -753,7 +753,7 @@ def render_resume(ws_name, font, size, spacing, bg, bionic=False) -> str:
 # --- Layout ---------------------------------------------------------------------------------------
 def build() -> gr.Blocks:
     look_default = ("Standard", 18, 1.7, "Auto")
-    with gr.Blocks(title="NeuroAssist") as demo:
+    with gr.Blocks(title="Percie") as demo:
         session = gr.State(None)
         last = gr.State(None)
         ws_name = gr.State(None)
@@ -778,7 +778,7 @@ def build() -> gr.Blocks:
 
         with gr.Column(elem_classes="na-main"):
             # --- Header + materials ------------------------------------------------------------------------
-            gr.HTML("<div class='na-head'><h1>NeuroAssist</h1><p>Understand your materials, get started, "
+            gr.HTML("<div class='na-head'><h1>Percie</h1><p>Understand your materials, get started, "
                     "and find your place again. Nothing leaves this laptop.</p></div>")
             files = gr.File(label="Your materials: assignment, slides, recording, photo, video or code",
                             file_count="multiple", type="filepath", height=120)

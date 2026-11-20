@@ -1,1 +1,1 @@
-"""NeuroAssist: offline multimodal assistant. Entry point: neuroassist.pipeline.answer()."""
+"""Percie: offline multimodal assistant. Entry point: neuroassist.pipeline.answer()."""

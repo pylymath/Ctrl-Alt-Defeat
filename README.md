@@ -1,4 +1,7 @@
-# NeuroAssist
+# Percie
+
+> The code keeps its working name: the Python package `neuroassist/`, settings `NEUROASSIST_*` /
+> `neuroassist.env`, and the model `neuro-doc-qa`. Only the product name changed, so existing setups keep working.
 
 Offline multimodal assistant for students with ADHD and dyslexia. One interface for photos,
 audio, documents, code and short videos; every model runs locally through Ollama, with no internet.

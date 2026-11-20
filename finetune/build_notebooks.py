@@ -256,7 +256,7 @@ def text_notebook(filename, title, intro, install_extra, settings, data, cells_a
 # --------------------------------------------------------------------------------------------
 text_notebook(
     "01_card_writer.ipynb",
-    "NeuroAssist fine-tune 1/5 — Card writer (sentence simplifier)",
+    "Percie fine-tune 1/5 — Card writer (sentence simplifier)",
     "Teaches **Qwen2.5-1.5B-Instruct** to rewrite sentences in plain, short language. The app builds the "
     "accessible card from these rewrites; facts always come from the base models.\n\n"
     "**Data:** ASSET `validation` (2,000 sentences × up to 10 human simplifications) + WikiSplit `train` "
@@ -269,7 +269,7 @@ OLLAMA_NAME = "neuro-card-writer"       # name for `ollama create`
 APP_SETTING = "NEUROASSIST_CARD_MODEL"  # how the app picks it up
 
 # The app sends exactly these prompts. Change both here and in the app together.
-SYSTEM_PROMPT   = "You are NeuroAssist, a reading assistant for students with dyslexia and ADHD. Rewrite the text in short, plain sentences. Keep every fact. Add nothing."
+SYSTEM_PROMPT   = "You are Percie, a reading assistant for students with dyslexia and ADHD. Rewrite the text in short, plain sentences. Keep every fact. Add nothing."
 SIMPLIFY_PROMPT = "Rewrite this in simpler words:\n{input}"
 SPLIT_PROMPT    = "Split this into shorter sentences:\n{input}"
 
@@ -325,7 +325,7 @@ def evaluate_model():
 # --------------------------------------------------------------------------------------------
 text_notebook(
     "02_coder.ipynb",
-    "NeuroAssist fine-tune 2/5 — Coder",
+    "Percie fine-tune 2/5 — Coder",
     "Fine-tunes **Qwen2.5-Coder-3B-Instruct** on Python problems, with the app's exact system prompt and "
     "the practice pack's prompt style (`Complete this Python function:` + a stub with examples).\n\n"
     "**Data:** MBPP `full` train+validation+prompt (474 problems, turned into stub prompts) + "
@@ -454,7 +454,7 @@ def evaluate_model():
 # --------------------------------------------------------------------------------------------
 text_notebook(
     "03_document_qa.ipynb",
-    "NeuroAssist fine-tune 3/5 — Document Q&A (answer or say \"not there\")",
+    "Percie fine-tune 3/5 — Document Q&A (answer or say \"not there\")",
     "Fine-tunes **Qwen2.5-3B-Instruct** to answer questions about a document in the app's exact JSON "
     "format `{found, quote, answer}`, and to say `found: false` when the document doesn't contain the "
     "answer. The app then checks the quote really is in the document.\n\n"
@@ -1050,7 +1050,7 @@ print("\n✅ Export path works. Set SMOKE_TEST = False in Settings and Run all f
 '''
 
 write("04_vision_video.ipynb", [
-    md("# NeuroAssist fine-tune 4/5 — Images + video (Qwen2.5-VL-3B)\n\n"
+    md("# Percie fine-tune 4/5 — Images + video (Qwen2.5-VL-3B)\n\n"
        "Fine-tunes **Qwen2.5-VL-3B-Instruct** on counting, reading text, general questions and short video "
        "clips, using the app's exact prompts and JSON formats.\n\n"
        "**Data:**\n"
@@ -1089,7 +1089,7 @@ write("04_vision_video.ipynb", [
 # 05 Speech (Whisper)
 # ============================================================================================
 write("05_speech_whisper.ipynb", [
-    md("# NeuroAssist fine-tune 5/5 — Speech-to-text (Whisper small)\n\n"
+    md("# Percie fine-tune 5/5 — Speech-to-text (Whisper small)\n\n"
        "Fine-tunes **openai/whisper-small** on LibriSpeech **train-clean-100**, then converts it to the "
        "CTranslate2 format that the app's faster-whisper loads.\n\n"
        "The practice recordings come from LibriSpeech *test-clean*, so this notebook never touches test-clean. "

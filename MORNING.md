@@ -11,12 +11,12 @@
 ---
 
 ## Tonight (Yash, 2 minutes)
-- Upload `C:\Users\uctel\Downloads\neuroassist-v2.zip` (1–5 MB) to the team Google Drive.
+- Upload `C:\Users\uctel\Downloads\percie-v2.zip` (about 3 MB) to the team Google Drive.
 - (Optional) Upload the fine-tune to Hugging Face (steps in the README, "Sharing the fine-tune"). It isn't needed for the
   Legion, because the fine-tune is already in its Ollama.
 
 ## 8:00 · Step 1: put the new version next to the old one (2 min)
-1. On the Legion, download `neuroassist-v2.zip` from Drive.
+1. On the Legion, download `percie-v2.zip` from Drive.
 2. Right-click it → **Extract All…** → set the folder to `C:\Users\fepes\Documents\Hackathon 11.26` → **Extract**.
 3. You now have **two** folders side by side:
    - `Ctrl-Alt-Defeat-main`: the old version (fallback, don't touch)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NeuroAssist one-step setup for macOS / Linux. From the repo folder:
+# Percie one-step setup for macOS / Linux. From the repo folder:
 #
 #     ./install.sh
 #     ./install.sh --finetunes /path/to/neuroassist-finetunes

@@ -1,4 +1,4 @@
-# NeuroAssist one-step setup for Windows. From the repo folder, in PowerShell:
+# Percie one-step setup for Windows. From the repo folder, in PowerShell:
 #
 #     powershell -ExecutionPolicy Bypass -File install.ps1
 #     powershell -ExecutionPolicy Bypass -File install.ps1 -Finetunes "D:\neuroassist-finetunes"

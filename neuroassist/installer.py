@@ -232,7 +232,7 @@ def main(argv=None):
         check()
         return 0
 
-    print("\nNeuroAssist setup: everything runs on this computer; downloads happen only now.\n")
+    print("\nPercie setup: everything runs on this computer; downloads happen only now.\n")
     if not ensure_ollama():
         return 1
     profile = pick_profile(a.profile)

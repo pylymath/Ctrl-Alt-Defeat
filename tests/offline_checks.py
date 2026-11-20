@@ -288,7 +288,7 @@ for name, html_ in [("plan", ui.render_plan("Lab 4", False, *look, True)),
     check(f"renders {name}", isinstance(html_, str) and len(html_) > 50 and "Traceback" not in html_)
 plan_html = ui.render_plan("Lab 4", False, *look)
 check("plan shows conflict and links", "Check both" in plan_html and "Also in" in plan_html)
-check("plan labels steps as suggested", "Suggested by NeuroAssist" in plan_html)
+check("plan labels steps as suggested", "Suggested by Percie" in plan_html)
 bio = ui.render({"answer": "You must submit lab4.py", "route": {}, "evidence": {}}, "Standard", 18, 1.7, "Auto", True)
 check("bionic reading: word starts bolded and surface tagged", "na-out na-bio" in bio and "<b>Yo</b>u" in bio)
 check("bionic reading off: plain text", "<b>" not in ui.render({"answer": "You must", "route": {}, "evidence": {}},
