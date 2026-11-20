@@ -72,7 +72,10 @@ CSS = """
         'Book Antiqua', Georgia, serif; }
 .dark { --na-page: #262523; --na-surface: #302E2B; --na-ink: #ECE8E1; --na-muted: #A39E95; --na-line: #3A3835; --na-sage: #8FB3A2; --na-sage-soft: #2C3631;
         --na-clay-soft: #3B2C24; --na-clay-ink: #E7B79C; }
-.na-main { max-width: 1100px; width: 100%; margin: 0 auto; }
+.na-split { align-items: flex-start !important; gap: 32px !important; max-width: 1320px; margin: 0 auto !important; }
+.na-left { position: sticky !important; top: 10px; align-self: flex-start !important; }
+.na-right { height: calc(100vh - 28px); overflow-y: auto !important; padding: 6px 8px 24px 0; }
+.na-hint { font-size: .8rem; color: var(--na-muted); margin: 2px 4px 6px; }
 footer { display: none !important; }
 
 /* header */
@@ -334,6 +337,8 @@ def _code_report(ev: dict, T, surface: str) -> str:
 
 @_bionic_view
 def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bionic: bool = False) -> str:
+    if res and "_easier" in res:
+        return render_easier(res["_easier"], 0, font, size, spacing, bg, bionic)
     T = _bionic if bionic else _esc
     style, surface = _style(font, size, spacing, bg)
     if not res:
@@ -625,9 +630,10 @@ def render_easier(res, idx, font, size, spacing, bg, bionic=False) -> str:
                    + "</ul></details>")
     ins = res.get("instructions") or []
     if ins:
-        i = max(0, min(int(idx or 0), len(ins) - 1))
-        out.append(f"<div class='na-card' style='background:{surface}'><div class='na-status'>Instruction {i + 1} of "
-                   f"{len(ins)} (word for word from the text)</div><div class='na-instr'>{T(ins[i])}</div></div>")
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>{T('What to do, one at a time')}</h3>"
+                   "<ol style='margin:6px 0 0 1.2em;padding:0'>" + "".join(f"<li style='margin-bottom:.5em'>{T(i)}</li>"
+                                                                          for i in ins) +
+                   f"</ol><div class='na-status'>{T('Word for word from the text.')}</div></div>")
     if res.get("unclear"):
         out.append(f"<div class='na-card' style='background:{surface}'><h3>Unclear phrases "
                    "<span style='font-weight:400;font-size:.8em'>(highlighted below)</span></h3><dl class='na-terms'>"
@@ -636,12 +642,18 @@ def render_easier(res, idx, font, size, spacing, bg, bionic=False) -> str:
     out.append(f"<h3 style='margin-top:18px'>Original, with unclear phrases marked</h3>"
                f"<div class='na-card' style='background:{surface};margin-top:6px'>"
                f"{_highlight(res.get('original', ''), res.get('unclear') or [])}</div>")
-    if res.get("plain"):
-        out.append("<h3 style='margin-top:18px'>Plain language, next to the original</h3>")
-        for p in res["plain"]:
-            tag = "" if p["checked"] else "<span class='na-tag'>kept original: the rewrite changed a number</span>"
-            out.append(f"<div class='na-plain'><div class='na-orig' style='background:{surface}'>{_esc(p['original'])}"
-                       f"</div><div style='background:{surface}'>{T(p['plain'])}{tag}</div></div>")
+    good = [p for p in res.get("plain") or [] if p["checked"]]
+    if good:
+        out.append(f"<details style='margin-top:18px'><summary>{T('Plain language, next to the original')} "
+                   f"({len(good)})</summary>")
+        for p in good:
+            out.append(f"<div class='na-plain'><div class='na-orig' style='background:{surface}'>{T(p['original'])}"
+                       f"</div><div style='background:{surface}'>{T(p['plain'])}</div></div>")
+        skipped = len(res.get("plain") or []) - len(good)
+        if skipped:
+            out.append(f"<p class='na-status'>{skipped} paragraph(s) left as they are: the simpler version changed a "
+                       "number or a condition.</p>")
+        out.append("</details>")
     return "".join(out) + "</div>"
 
 
@@ -667,62 +679,55 @@ def _req_html(r: dict, T, surface: str) -> str:
 
 @_bionic_view
 def render_plan(ws_name, focus, font, size, spacing, bg, bionic=False) -> str:
+    """One step at a time: the step to do NOW, big; what's next, small; everything else folded away."""
     T = _bionic if bionic else _esc
     style, surface = _style(font, size, spacing, bg)
     ws = _load_ws(ws_name)
     if not ws:
-        return (f"<div class='na-out' style='{style}'>Add the assignment (PDF, text or a lecture recording) above, "
-                "plus any slides, photos or videos that go with it. Give it a name and press <b>Help me start</b>. "
-                "You get what it requires, each with the sentence and place it came from, connected across your "
-                "files, and a short list of suggested steps.</div>")
+        return (f"<div class='na-out' style='{style}'><span class='na-empty'>"
+                + T("Attach your assignment in the box on the left (and any recordings, slides or photos), then press "
+                    "Help me start. You'll get one small step at a time.") + "</span></div>")
     vis = ws.visible_steps()
     done = sum(s["done"] for s in vis)
     nxt = ws.next_step()
     out = [f"<div class='na-out' style='{style}'><p class='na-goal'>{T(ws.goal)}</p>",
            f"<div class='na-bar'><div style='width:{100 * done / max(len(vis), 1):.0f}%'></div></div>",
            f"<div class='na-status'>{done} of {len(vis)} steps done</div>"]
-    if focus:
-        if nxt:
-            req = ws.requirements[nxt["requirement"]] if nxt.get("requirement") is not None and \
-                nxt["requirement"] < len(ws.requirements) else None
-            out.append(f"<div class='na-card' style='background:{surface}'><div class='na-status'>Just this one:</div>"
-                       f"<div class='na-focus'>{T(nxt['text'])}</div>")
-            if req:
-                out.append(f"<div class='na-status'>Because the assignment says "
-                           f"<span class='na-loc'>{_esc(req['source'])} · {_esc(req['loc'])}</span></div>"
-                           f"<div class='na-quote'>{_esc(req['quote'])}</div>")
-            out.append("</div>")
-        else:
-            out.append("<p class='na-focus'>All steps done. Nice work.</p>")
-        return "".join(out) + "</div>"
-
-    out.append("<div class='na-section'>Suggested steps</div><div class='na-suggest'>Suggested by Percie, not stated in your files. "
-               "Add your own or make any of them smaller.</div>")
-    if not vis:
-        out.append("<p>No steps yet.</p>")
-    for i, s in enumerate(vis, 1):
-        cls = "done" if s["done"] else ("now" if nxt and s["id"] == nxt["id"] else "")
-        mark = "✓" if s["done"] else ("→" if cls == "now" else "○")
-        sub = "↳ " if s.get("parent") else ""
-        out.append(f"<div class='na-step {cls}'><span class='na-dot'>{mark}</span><span>{i}. {sub}{T(s['text'])}</span></div>")
-
-    out.append("<div class='na-section'>What your files say</div>")
-    if ws.requirements:
-        for t in wsp.TYPES:
-            group = [r for r in ws.requirements if r["type"] == t]
-            if group:
-                out.append(f"<p style='margin:14px 0 4px'><b>{wsp.TYPE_LABEL[t]}</b></p><ul>"
-                           + "".join(_req_html(r, T, surface) for r in group) + "</ul>")
-        if not any(r["type"] == "deadline" for r in ws.requirements):
-            out.append("<p class='na-status'>No deadline was found in your files. Ask your teacher.</p>")
+    if nxt:
+        req = ws.requirements[nxt["requirement"]] if nxt.get("requirement") is not None and \
+            nxt["requirement"] < len(ws.requirements) else None
+        out.append(f"<div class='na-card' style='background:{surface}'><div class='na-status'>Your step now</div>"
+                   f"<div class='na-focus'>{T(nxt['text'])}</div>")
+        if req:
+            out.append(f"<div class='na-status'>Because your file says "
+                       f"<span class='na-loc'>{_esc(req['source'])} · {_esc(req['loc'])}</span></div>"
+                       f"<div class='na-quote'>{T(req['quote'])}</div>")
+        out.append("</div>")
+        rest = [s for s in vis if not s["done"] and s is not nxt]
+        if rest:
+            out.append(f"<p class='na-status' style='margin-top:12px'>Up next: {T(rest[0]['text'])}</p>")
     else:
-        out.append("<p>No requirement could be matched to a sentence in your files, so none are shown.</p>")
-    if ws.dropped:
-        out.append(f"<p class='na-status'>{ws.dropped} item(s) were left out because no matching sentence was found "
-                   "in your files.</p>")
-    errs = [s for s in ws.sources if s.get("error")]
-    if errs:
-        out.append("<p class='na-status'>" + " · ".join(f"{_esc(s['name'])}: {_esc(s['error'])}" for s in errs) + "</p>")
+        out.append("<p class='na-focus'>" + T("All steps done. Nice work.") + "</p>")
+
+    conflicts = [c for r in ws.requirements for c in r.get("conflicts") or []]
+    if conflicts:
+        out.append(f"<div class='na-conflict' style='margin:16px 0 0'>{T('Check with your teacher:')} "
+                   f"{_esc(conflicts[0])}. {T('Your files disagree, so Percie shows both and does not pick one.')}</div>")
+
+    if not focus:
+        steps = "".join(
+            f"<div class='na-step {'done' if s['done'] else ('now' if nxt and s['id'] == nxt['id'] else '')}'>"
+            f"<span class='na-dot'>{'✓' if s['done'] else ('→' if nxt and s['id'] == nxt['id'] else '○')}</span>"
+            f"<span>{T(s['text'])}</span></div>" for s in vis)
+        out.append(f"<details style='margin-top:18px'><summary>{T('All steps')} ({len(vis)})</summary>"
+                   f"<div class='na-suggest'>{T('Suggested by Percie, not stated in your files.')}</div>{steps}</details>")
+        if ws.requirements:
+            groups = "".join(
+                f"<p style='margin:12px 0 4px'><b>{wsp.TYPE_LABEL[t]}</b></p><ul>"
+                + "".join(_req_html(r, T, surface) for r in ws.requirements if r["type"] == t) + "</ul>"
+                for t in wsp.TYPES if any(r["type"] == t for r in ws.requirements))
+            out.append(f"<details style='margin-top:10px'><summary>{T('What your files say')} "
+                       f"({len(ws.requirements)})</summary>{groups}</details>")
     return "".join(out) + "</div>"
 
 
@@ -877,179 +882,249 @@ def render_resume(ws_name, font, size, spacing, bg, bionic=False) -> str:
 
 
 # --- Layout ---------------------------------------------------------------------------------------
+# One composer and one row of actions on the left (fixed); everything that grows goes in the right
+# pane, which is the only part that scrolls. Actions that only make sense for some files (code, a
+# recording) appear only when such a file is attached, so there are fewer choices on screen.
+ACTIONS = {   # label: (kind, question)
+    "Explain simply": ("ask", "Summarize this simply."),
+    "Key points": ("ask", "What are the key points?"),
+    "Make it easier": ("easier", None),
+    "What does it mean?": ("ask", "What does the teacher really mean? Explain anything vague literally."),
+    "Quiz me": ("ask", "Make flashcards to quiz me on this."),
+    "Catch me up": ("catchup", None),
+    "Run the code": ("ask", "Explain this code and run it."),
+    "Fix the code": ("ask", "Fix this code."),
+}
+CORE = ["Explain simply", "Key points", "Make it easier", "What does it mean?", "Quiz me"]
+WHEN_RECORDING, WHEN_CODE = ["Catch me up"], ["Run the code", "Fix the code"]
+
+
+def _file_kinds(paths):
+    from .ingest import sniff
+    from .tools.code_explain import find_snippets
+    has_av = has_code = False
+    for p in paths:
+        try:
+            k = sniff(p)
+            has_av |= k in ("audio", "video")
+            if k == "code":
+                has_code = True
+            elif k == "document" and not has_code:
+                from .ingest import load_document
+                has_code = bool(find_snippets(load_document(p)))
+        except Exception:
+            continue
+    return has_av, has_code
+
+
+def sync_files(box, current):
+    """Composer changed. A microphone recording (Gradio names it audio.wav) is a spoken question: it is
+    transcribed locally into the text box and removed from the files. Other files are the student's
+    materials: kept in state; 'Ask about' and the file-specific actions update only when they change."""
+    box = box or {}
+    raw = list(box.get("files") or [])
+    voice = [f for f in raw if Path(_paths([f])[0]).name.lower() == "audio.wav"]
+    box_out = gr.skip()
+    if voice:
+        from .tools import audio
+        words = ""
+        try:
+            words = (audio.transcribe(_paths(voice[-1:])[0]).get("text") or "").strip()
+        except Exception:
+            pass
+        if not words:
+            gr.Warning("I didn't catch any words. Try again a little closer to the microphone.")
+        raw = [f for f in raw if f not in voice]
+        box_out = {"text": f"{(box.get('text') or '').strip()} {words}".strip(), "files": raw}
+    paths = _paths(raw)
+    if paths == (current or []):
+        return gr.skip(), gr.skip(), gr.skip(), gr.skip(), box_out
+    has_av, has_code = _file_kinds(paths)
+    names = [Path(p).name for p in paths]
+    which = gr.update(choices=names + ([ALL] if len(names) > 1 else []) + [NONE],
+                      value=names[0] if names else NONE, visible=len(names) > 1)
+    return (paths, which, gr.update(visible=has_av), gr.update(visible=has_code), box_out)
+
+
+def act(label, box, files, which, rate, font, size, spacing, bg, bionic, ws_name, session, read_aloud):
+    """One click = one finished result on the attached file. No extra choices or boxes."""
+    kind, question = ACTIONS[label]
+    outputs = ["Read aloud"] if read_aloud else []
+    typed = ((box or {}).get("text") or "").strip()
+    if kind == "ask":
+        return ask(question, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session)
+    if kind == "catchup":   # a time typed in the box ("12:40") is used; otherwise the last 5 minutes
+        when = typed if re.search(r"\d", typed) else ""
+        return catch_me_up(when, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session)
+    res, _, session = make_easier(typed if len(typed) > 60 else "", files, which, session)   # a pasted passage, or the file
+    wrapped = {"_easier": res}
+    return (render(wrapped, font, size, spacing, bg, bionic), gr.update(visible=False), gr.update(visible=False),
+            "", wrapped, session)
+
+
+def do_start(files, session, progress=gr.Progress()):
+    session = session or Session()
+    paths = _paths(files)
+    if not paths:
+        raise gr.Error("Attach your assignment first: use the clip in the box on the left.")
+    docs = [p for p in paths if Path(p).suffix.lower() in (".pdf", ".txt", ".md", ".docx")] or paths
+    name = Path(docs[0]).stem.replace("_", " ").strip() or "My assignment"
+    n = [0]
+
+    def say(msg):
+        n[0] += 1
+        progress(min(0.95, n[0] / (len(paths) * 2 + 3)), desc=msg)
+    try:
+        wsp.help_me_start(name, paths, "", session, visual=True, progress=say)
+    except Exception as e:
+        raise gr.Error(str(e))
+    return name, _ws_names(name), session
+
+
+def _with_ws(ws_name, fn):
+    ws = _load_ws(ws_name)
+    if not ws:
+        raise gr.Error("Press Help me start first.")
+    try:
+        fn(ws)
+    except ValueError as e:
+        raise gr.Error(str(e))
+    return ws_name
+
+
+def do_done(ws_name):
+    return _with_ws(ws_name, lambda ws: ws.next_step() and ws.mark_done(ws.next_step()["id"]))
+
+
+def do_smaller(ws_name):
+    return _with_ws(ws_name, lambda ws: wsp.make_smaller(ws, None))
+
+
+def do_skip(ws_name):
+    return _with_ws(ws_name, lambda ws: ws.skip())
+
+
+def do_timer(ws_name):
+    ws = _load_ws(ws_name)
+    if not ws:
+        raise gr.Error("Press Help me start first.")
+    ws.stop_timer() if ws.timer_left() else ws.start_timer(15)
+    return timer_html(ws_name)
+
+
 def build() -> gr.Blocks:
     look_default = ("Standard", 18, 1.7, "Auto")
     with gr.Blocks(title="Percie") as demo:
         session = gr.State(None)
         last = gr.State(None)
         ws_name = gr.State(None)
-        easy_res = gr.State(None)
-        easy_idx = gr.State(0)
+        files = gr.State([])
         saved = wsp.list_workspaces()
 
-        # --- Sidebar: everything about HOW things look and which assignment is open --------------------
-        with gr.Sidebar(open=True, width=300):
-            gr.HTML("<div class='na-section' style='margin-top:4px'>Assignment</div>")
-            ws_pick = gr.Dropdown(saved, label="Open a saved assignment", value=saved[0] if saved else None)
-            gr.HTML("<div class='na-section'>Reading</div>")
+        # --- Sidebar: settings only, closed until you want it ----------------------------------------
+        with gr.Sidebar(open=False, width=290):
+            gr.HTML("<div class='na-section' style='margin-top:4px'>Reading</div>")
             font = gr.Radio(list(FONTS), value="Standard", label="Font")
             size = gr.Slider(14, 30, value=18, step=1, label="Text size")
             spacing = gr.Slider(1.3, 2.4, value=1.7, step=0.1, label="Line spacing")
             bg = gr.Radio(list(BACKGROUNDS), value="Auto", label="Background")
             bionic = gr.Checkbox(value=False, label="Bionic reading (bold word starts)")
+            read_aloud = gr.Checkbox(value=False, label="Read answers aloud")
             rate = gr.Slider(-5, 5, value=0, step=1, label="Read-aloud speed")
+            gr.HTML("<div class='na-section'>Saved assignments</div>")
+            ws_pick = gr.Dropdown(saved, show_label=False, value=saved[0] if saved else None)
             gr.HTML("<div class='na-section'>Running locally</div>")
             gr.HTML(status_html)
         look = [font, size, spacing, bg]
 
-        with gr.Column(elem_classes="na-main"):
-            # --- Header + materials ------------------------------------------------------------------------
-            gr.HTML("<div class='na-head'><h1>Percie</h1><p>Understand your materials, get started, "
-                    "and find your place again. Nothing leaves this laptop.</p></div>")
-            # --- Composer: type, click the paperclip, or drop files onto it. Shared by all three tabs. --------
-            box = gr.MultimodalTextbox(file_count="multiple", show_label=False, lines=2, max_lines=8, autofocus=True,
-                                       submit_btn="Ask", elem_classes="na-composer",
-                                       placeholder="Ask anything, or drop your files here: assignment, slides, "
-                                                   "recording, photo, video or code")
-            files = gr.State([])
-            with gr.Row(equal_height=True, elem_classes="na-under"):
-                which = gr.Dropdown([NONE], value=NONE, label="Ask about", scale=1, min_width=200)
-                # Speak instead of typing: local Whisper writes it into the box; you check it, then Ask.
-                mic = gr.Audio(sources=["microphone"], type="filepath", label="Or say it", scale=1,
-                               min_width=200, editable=False, elem_classes="na-mic")
-                with gr.Column(scale=3):
-                    read_aloud = gr.Checkbox(value=False, label="Read answers aloud")
-                    with gr.Row(elem_classes="na-chips"):
-                        quick = [gr.Button(label, size="sm", variant="secondary") for label, _ in QUICK]
+        with gr.Row(equal_height=False, elem_classes="na-split"):
+            # --- Left: fixed. Ask, attach, speak; pick one action. ------------------------------------
+            with gr.Column(scale=2, min_width=340, elem_classes="na-left"):
+                gr.HTML("<div class='na-head'><h1>Percie</h1><p>Understand it. Start it. Pick up where you "
+                        "left off. All on this laptop.</p></div>")
+                box = gr.MultimodalTextbox(file_count="multiple", sources=["upload", "microphone"], show_label=False,
+                                           lines=2, max_lines=6, autofocus=True, submit_btn="Ask",
+                                           elem_classes="na-composer",
+                                           placeholder="Ask anything, or attach your files with the clip")
+                gr.HTML("<div class='na-hint'>Enter sends · Shift+Enter for a new line · mic to speak</div>")
+                which = gr.Dropdown([NONE], value=NONE, label="Ask about", visible=False)
+                with gr.Tabs(selected="understand") as tabs:
+                    with gr.Tab("Understand", id="understand") as tab_u:
+                        with gr.Row(elem_classes="na-chips"):
+                            core = [gr.Button(lbl, size="sm", variant="secondary") for lbl in CORE]
+                        with gr.Row(elem_classes="na-chips", visible=False) as rec_row:
+                            rec = [gr.Button(lbl, size="sm", variant="secondary") for lbl in WHEN_RECORDING]
+                        with gr.Row(elem_classes="na-chips", visible=False) as code_row:
+                            code = [gr.Button(lbl, size="sm", variant="secondary") for lbl in WHEN_CODE]
+                        gr.HTML("<div class='na-hint'>Catch me up: type a time like 12:40 first, or leave the box "
+                                "empty for the last 5 minutes. Make it easier: paste a passage, or use your file.</div>")
+                    with gr.Tab("Do", id="do") as tab_d:
+                        start_btn = gr.Button("Help me start", variant="primary", size="lg")
+                        with gr.Row():
+                            done_btn = gr.Button("Done", variant="primary")
+                            small_btn = gr.Button("Make it smaller", variant="secondary")
+                            skip_btn = gr.Button("Skip for now", variant="secondary")
+                        timer_btn = gr.Button("15-minute focus timer (start / stop)", size="sm", variant="secondary")
+                        timer_box = gr.HTML()
+                    with gr.Tab("Resume", id="resume") as tab_r:
+                        where_btn = gr.Button("Where was I?", variant="primary", size="lg")
+                        gr.HTML("<div class='na-hint'>Read from your saved progress. Nothing is guessed.</div>")
 
-            with gr.Tabs(selected="understand") as tabs:
-                # ---- Understand ----
-                with gr.Tab("Understand", id="understand"):
-                    with gr.Row(equal_height=False):
-                        with gr.Column(scale=3, min_width=360):
-                            result = gr.HTML(render(None, *look_default))
-                            speech = gr.Audio(label="Read aloud", type="filepath", interactive=False, autoplay=True,
-                                              visible=False)
-                            captions = gr.File(label="Captions (.vtt)", interactive=False, visible=False)
-                            with gr.Accordion("How I got this answer", open=False):
-                                details = gr.HTML()
-                        with gr.Column(scale=2, min_width=300):
-                            with gr.Accordion("I lost the thread (catch me up)", open=False):
-                                when = gr.Textbox(label="From when in the recording?",
-                                                  placeholder="12:40   ·   2:00 to 3:30   ·   empty = last 5 minutes")
-                                catch_btn = gr.Button("Catch me up", variant="secondary")
-                            with gr.Accordion("More", open=False):
-                                with gr.Row(elem_classes="na-chips"):
-                                    more_quick = [gr.Button(label, size="sm", variant="secondary")
-                                                  for label, _ in MORE_QUICK]
-                                outputs = gr.CheckboxGroup(list(OUTPUTS), label="Also give me", value=[])
-                    with gr.Accordion("Make this easier: paste a passage, or leave it empty to use the attached file",
-                                      open=False):
-                        with gr.Row(equal_height=False):
-                            with gr.Column(scale=2, min_width=320):
-                                passage = gr.Textbox(lines=7, show_label=False,
-                                                     placeholder="Paste instructions or a paragraph you find hard")
-                                easy_btn = gr.Button("Make this easier", variant="primary")
-                                with gr.Row():
-                                    prev_btn = gr.Button("Previous instruction", size="sm", variant="secondary")
-                                    next_btn = gr.Button("Next instruction", size="sm", variant="secondary")
-                            with gr.Column(scale=3, min_width=360):
-                                easy_out = gr.HTML()
-
-                # ---- Do ----
-                with gr.Tab("Do", id="do"):
-                    with gr.Row(equal_height=False):
-                        with gr.Column(scale=2, min_width=320):
-                            name_box = gr.Textbox(label="Assignment name", placeholder="e.g. Lab 4")
-                            goal = gr.Textbox(label="Anything to add? (optional)", placeholder="e.g. I only have tonight")
-                            visual = gr.Checkbox(value=True, label="Also connect photos and videos (slower)")
-                            start_btn = gr.Button("Help me start", variant="primary", size="lg")
-                            step = gr.Radio([], label="Your steps", value=None)
-                            with gr.Row():
-                                done_btn = gr.Button("Done", variant="primary")
-                                small_btn = gr.Button("Make this smaller", variant="secondary")
-                            focus = gr.Checkbox(value=False, label="Focus mode: show only this step")
-                            with gr.Accordion("More", open=False):
-                                undo_btn = gr.Button("Mark as not done", size="sm", variant="secondary")
-                                with gr.Row():
-                                    own = gr.Textbox(show_label=False, placeholder="Add your own step", scale=3)
-                                    own_btn = gr.Button("Add", scale=1, variant="secondary")
-                            with gr.Accordion("Timer (yours, not a deadline)", open=False):
-                                minutes = gr.Radio([5, 10, 15, 25], value=15, label="Minutes")
-                                with gr.Row():
-                                    t_start = gr.Button("Start", variant="secondary")
-                                    t_stop = gr.Button("Stop", size="sm", variant="secondary")
-                                timer_box = gr.HTML()
-                            with gr.Accordion("Write code for a step", open=False):
-                                code_prompt = gr.Textbox(lines=8, show_label=False,
-                                                         placeholder='def moving_average(values, window):\n    """...\n'
-                                                                     '    >>> moving_average([1, 2, 3, 4], 2)\n'
-                                                                     '    [1.5, 2.5, 3.5]\n    """')
-                                code_btn = gr.Button("Write it and check the examples", variant="secondary")
-                        with gr.Column(scale=3, min_width=360):
-                            plan = gr.HTML(render_plan(None, False, *look_default))
-                            code_out = gr.HTML()
-
-                # ---- Resume ----
-                with gr.Tab("Resume", id="resume"):
-                    with gr.Row():
-                        with gr.Column(scale=1, min_width=240):
-                            where_btn = gr.Button("Where was I?", variant="primary", size="lg")
-                        with gr.Column(scale=3):
-                            resume = gr.HTML()
+            # --- Right: the only part that scrolls --------------------------------------------------------
+            with gr.Column(scale=3, min_width=380, elem_classes="na-right"):
+                with gr.Group(visible=True) as pane_u:
+                    result = gr.HTML(render(None, *look_default))
+                    speech = gr.Audio(label="Read aloud", type="filepath", interactive=False, autoplay=True,
+                                      visible=False)
+                    captions = gr.File(label="Captions (.vtt)", interactive=False, visible=False)
+                    with gr.Accordion("How I got this answer", open=False):
+                        details = gr.HTML()
+                plan = gr.HTML(render_plan(None, False, *look_default), visible=False)
+                resume = gr.HTML(visible=False)
 
         # --- wiring --------------------------------------------------------------------------------------
-        # Files attached in the composer (paperclip or drag-and-drop) are kept until removed with their x,
-        # so follow-up questions and Help me start use them too.
-        box.change(sync_files, [box, files], [files, which], show_progress="hidden")
-        inputs = [box, files, which, outputs, rate, *look, bionic, ws_name, session]
-        results = [result, speech, captions, details, last, session, box, tabs]
-        # After an answer arrives, draw it again with the reading settings as they are NOW (they may have
-        # been changed while the model was still working).
+        box.change(sync_files, [box, files], [files, which, rec_row, code_row, box], show_progress="hidden")
         redraw = dict(fn=render, inputs=[last, *look, bionic], outputs=result, show_progress="hidden")
-        box.submit(submit, [*inputs, read_aloud], results).then(**redraw)
-        mic.stop_recording(voice_to_text, [mic, box], [box, mic])
-        catch_btn.click(catch_me_up, [when, *inputs[1:]], results[:6]).then(**redraw)
-        for btn, (_, text) in list(zip(quick, QUICK)) + list(zip(more_quick, MORE_QUICK)):
-            btn.click(lambda v, t=text: {"text": t, "files": (v or {}).get("files", [])}, box, box)
+        show_u = dict(fn=lambda: (gr.Tabs(selected="understand"), gr.update(visible=True), gr.update(visible=False),
+                                  gr.update(visible=False)), inputs=None, outputs=[tabs, pane_u, plan, resume])
+        results = [result, speech, captions, details, last, session]
+        common = [box, files, which, rate, *look, bionic, ws_name, session, read_aloud]
+        box.submit(submit, [box, files, which, gr.State([]), rate, *look, bionic, ws_name, session, read_aloud],
+                   [*results, box, tabs]).then(**redraw)
+        box.submit(**show_u)
+        for btn in core + rec + code:
+            btn.click(act, [gr.State(btn.value), *common], results).then(**redraw)
 
-        easy_in = [easy_res, easy_idx, *look, bionic]
-        easy_btn.click(make_easier, [passage, files, which, session], [easy_res, easy_idx, session]) \
-            .then(render_easier, easy_in, easy_out)
-        prev_btn.click(lambda r, i: step_instruction(r, i, -1), [easy_res, easy_idx], easy_idx) \
-            .then(render_easier, easy_in, easy_out)
-        next_btn.click(lambda r, i: step_instruction(r, i, 1), [easy_res, easy_idx], easy_idx) \
-            .then(render_easier, easy_in, easy_out)
-
-        plan_in = [ws_name, focus, *look, bionic]
+        plan_in = [ws_name, gr.State(False), *look, bionic]
         resume_in = [ws_name, *look, bionic]
 
         def refresh(chain):
-            return (chain.then(render_plan, plan_in, plan).then(step_choices, ws_name, step)
-                    .then(render_resume, resume_in, resume).then(timer_html, ws_name, timer_box))
+            return (chain.then(render_plan, plan_in, plan).then(render_resume, resume_in, resume)
+                    .then(timer_html, ws_name, timer_box))
 
-        refresh(start_btn.click(start, [name_box, goal, files, visual, session], [ws_name, ws_pick, session]))
+        refresh(start_btn.click(do_start, [files, session], [ws_name, ws_pick, session]))
+        refresh(done_btn.click(do_done, ws_name, ws_name))
+        refresh(small_btn.click(do_smaller, ws_name, ws_name))
+        refresh(skip_btn.click(do_skip, ws_name, ws_name))
         refresh(ws_pick.input(lambda n: n, ws_pick, ws_name))
-        refresh(small_btn.click(smaller, [ws_name, step], ws_name))
-        refresh(done_btn.click(set_done, [ws_name, step], ws_name))
-        refresh(undo_btn.click(lambda n, s: set_done(n, s, False), [ws_name, step], ws_name))
-        refresh(own_btn.click(add_own, [ws_name, own], [ws_name, own]))
-        step.input(focus_on, [ws_name, step], ws_name).then(render_plan, plan_in, plan)
-        focus.change(render_plan, plan_in, plan)
-        t_start.click(timer_start, [ws_name, minutes], timer_box)
-        t_stop.click(timer_stop, ws_name, timer_box)
+        timer_btn.click(do_timer, ws_name, timer_box)
         gr.Timer(1.0).tick(timer_html, ws_name, timer_box, show_progress="hidden")
-        code_btn.click(write_code, [code_prompt, *look], code_out)
         where_btn.click(render_resume, resume_in, resume)
         refresh(demo.load(lambda n: n, ws_pick, ws_name))
 
-        # Every reading setting re-draws every view at once (answer, easier, plan, resume)
+        # Tabs switch what the right pane shows
+        tab_u.select(lambda: (gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)),
+                     None, [pane_u, plan, resume])
+        tab_d.select(lambda: (gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)),
+                     None, [pane_u, plan, resume]).then(render_plan, plan_in, plan)
+        tab_r.select(lambda: (gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)),
+                     None, [pane_u, plan, resume]).then(render_resume, resume_in, resume)
+
+        # Every reading setting re-draws every view at once
         for ctl in (font, size, spacing, bg, bionic):
             ctl.change(render, [last, *look, bionic], result, show_progress="hidden")
-            ctl.change(render_easier, easy_in, easy_out, show_progress="hidden")
             ctl.change(render_plan, plan_in, plan, show_progress="hidden")
             ctl.change(render_resume, resume_in, resume, show_progress="hidden")
-        # ...and the rest of the page (labels, buttons, tabs, chips, placeholders), in the browser
         bionic.change(None, bionic, None, js="(v) => { if (window.percieBionic) window.percieBionic(v); }")
     return demo
 

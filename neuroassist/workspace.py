@@ -38,12 +38,12 @@ REQS = {"type": "object", "required": ["goal", "items"], "properties": {
             "type": {"enum": TYPES}, "text": {"type": "string"}, "quote": {"type": "string"}}}}}}
 
 STEPS = {"type": "object", "required": ["steps"], "properties": {"steps": {
-    "type": "array", "maxItems": 10, "items": {
+    "type": "array", "maxItems": 5, "items": {
         "type": "object", "required": ["text", "requirement"], "properties": {
             "text": {"type": "string"}, "requirement": {"type": "integer"}}}}}}
 
 SMALLER = {"type": "object", "required": ["actions"], "properties": {"actions": {
-    "type": "array", "minItems": 2, "maxItems": 5, "items": {"type": "string"}}}}
+    "type": "array", "minItems": 2, "maxItems": 3, "items": {"type": "string"}}}}
 
 
 @dataclass
@@ -125,6 +125,17 @@ class Workspace:
             self.current = sid
             self.event(f"switched to: {self.step(sid)['text']}")
             self.save()
+
+    def skip(self):
+        """Move on to the next unfinished step without marking this one done (it stays in the list)."""
+        vis = [s for s in self.visible_steps() if not s["done"]]
+        if len(vis) < 2:
+            return
+        cur = self.next_step()
+        i = vis.index(cur) if cur in vis else -1
+        self.current = vis[(i + 1) % len(vis)]["id"]
+        self.event(f"skipped for now: {cur['text'] if cur else ''}")
+        self.save()
 
     def add_step(self, text: str):
         text = text.strip()
@@ -303,7 +314,7 @@ def help_me_start(name: str, files: list[str], goal_hint: str = "", session=None
         listing = "\n".join(f"{i}. {r['text']}{' (optional)' if r['type'] == 'optional' else ''}" for i, r in todo)
         hint = f"\nThe student adds: {goal_hint}" if goal_hint else ""
         s = llm.chat_json(config.TEXT_MODEL,
-                          f"Assignment goal: {goal}\nRequirements:\n{listing}{hint}\n\nSuggest a checklist of "
+                          f"Assignment goal: {goal}\nRequirements:\n{listing}{hint}\n\nSuggest AT MOST 5 steps: a short checklist of "
                           "concrete steps in a sensible order. Each step is ONE action that starts with a verb and "
                           "says exactly what to open, write or check. Make the first step very small and easy. "
                           "'requirement' = the number of the requirement it serves. Optional items go last. "
@@ -315,6 +326,7 @@ def help_me_start(name: str, files: list[str], goal_hint: str = "", session=None
             if isinstance(st, dict) and st.get("text") and not unknown_numbers(st["text"], known):
                 req = st.get("requirement")
                 steps.append(_new_step(st["text"], req if req in valid else None))
+        steps = steps[:5]                       # never more than 5: a short list is easier to start
 
     ws = Workspace(name=name, goal=goal, requirements=reqs, steps=steps, dropped=dropped,
                    sources=[{"name": s.name, "path": s.path, "kind": s.kind, "error": s.error} for s in srcs])
@@ -333,12 +345,12 @@ def make_smaller(ws: Workspace, sid: str | None = None) -> Workspace:
     ctx = f"\nIt is for this requirement: {req['text']} (the file says: \"{req['quote']}\")" if req else ""
     r = llm.chat_json(config.TEXT_MODEL,
                       f"Assignment goal: {ws.goal}\nStep: {s['text']}{ctx}\n\nThis step feels too big to start. "
-                      "Break it into 2-5 smaller actions, each starting with a verb. The first one must be "
+                      "Break it into 2 or 3 smaller actions, each starting with a verb. The first one must be "
                       "almost effortless (e.g. open the file, write the heading).",
                       SMALLER, system=SYSTEM, num_ctx=config.NUM_CTX_DOC, max_tokens=400)
     parent_id = s.get("parent") or s["id"]
     kids = [_new_step(a, s.get("requirement"), parent=parent_id)
-            for a in r.get("actions", []) if isinstance(a, str) and a.strip()]
+            for a in r.get("actions", [])[:3] if isinstance(a, str) and a.strip()]
     if len(kids) < 2:
         raise ValueError("Could not break this step down. Try again, or add your own step.")
     idx = ws.steps.index(s)

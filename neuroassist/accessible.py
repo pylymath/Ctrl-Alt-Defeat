@@ -73,7 +73,15 @@ def make_flashcards(source: str, n: int = 6) -> list[dict]:
              if isinstance(c, dict) and c.get("q") and c.get("a")]
     cards = [c for c in cards if len(c["a"]) > 1 and not re.search(r"[-–—:,(]\s*$", c["a"])
              and c["q"].rstrip().endswith("?")]          # drop cut-off or malformed cards
-    return [c for c in cards if _supported(c["a"], source)][:n]
+    unique, seen_q, seen_a = [], set(), set()             # small models repeat cards: keep each once
+    for c in cards:
+        q, a = _norm(c["q"]), _norm(c["a"])
+        if q in seen_q or a in seen_a:
+            continue
+        seen_q.add(q)
+        seen_a.add(a)
+        unique.append(c)
+    return [c for c in unique if _supported(c["a"], source)][:n]
 
 
 # --- Plain language (dyslexia) and literal meaning (autism) -------------------------------------
@@ -104,15 +112,22 @@ def plain_rewrite(source: str) -> list[dict]:
     never says, or drops one it does, is not shown (checked=False keeps the original instead)."""
     out = []
     for para in _paragraphs(source):
-        r = llm.chat_json(config.CARD_MODEL,
-                          f"Text:\n<<<\n{para}\n>>>\n\nRewrite this in plain language for a reader with dyslexia: "
-                          "short sentences (under 15 words), everyday words, one idea per sentence. Keep every "
-                          "name, number, date and condition (must, only, unless, before). Do not add anything.",
-                          PLAIN, system=SYSTEM, num_ctx=config.NUM_CTX_DOC, max_tokens=300)
-        plain = (r.get("plain") or "").strip()
         nums = re.findall(r"\b\d[\d,.]*\d\b|\b\d\b", para)
-        ok = bool(plain) and not unknown_numbers(plain, para) and all(n.replace(",", "") in plain.replace(",", "")
-                                                                      for n in nums)
+        keep = f" These numbers must appear exactly: {', '.join(dict.fromkeys(nums))}." if nums else ""
+        plain, ok = "", False
+        for attempt in range(2):           # one retry, telling the model which numbers it dropped
+            r = llm.chat_json(config.CARD_MODEL,
+                              f"Text:\n<<<\n{para}\n>>>\n\nRewrite this in plain language for a reader with dyslexia: "
+                              "short sentences (under 15 words), everyday words, one idea per sentence. Use your own "
+                              "words; do not copy the sentences. Keep every name, number, date and condition (must, "
+                              f"only, unless, before). Do not add anything.{keep if attempt else ''}",
+                              PLAIN, system=SYSTEM, num_ctx=config.NUM_CTX_DOC, max_tokens=300)
+            plain = (r.get("plain") or "").strip()
+            same = _norm(plain) == _norm(para)
+            ok = bool(plain) and not same and not unknown_numbers(plain, para) and \
+                all(n.replace(",", "") in plain.replace(",", "") for n in nums)
+            if ok:
+                break
         out.append({"original": para, "plain": plain if ok else para, "checked": ok})
     return out
 

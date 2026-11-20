@@ -52,5 +52,18 @@ def fake_answer(question, files=(), session=None, **kw):
 
 
 ui.answer = fake_answer
+
+from neuroassist import accessible  # noqa: E402
+accessible.easier = lambda text: {
+    "gist": "Lab 4: write a moving-average program, plot it, and explain the window size.",
+    "details": ["Hand in lab4.py, a plot and a short reflection", "Remove missing rows before averaging",
+                "Due Friday at 5 pm; late work loses marks"],
+    "plain": [{"original": text[:220], "plain": "Sensors are noisy. You will smooth the readings. Then you plot them.",
+               "checked": True}],
+    "unclear": [{"phrase": "go the extra mile", "kind": "idiom", "label": "Common meaning",
+                 "meaning": "Do more than you have to. Here it means the optional bonus."},
+                {"phrase": "in a timely manner", "kind": "vague", "label": "Not exact",
+                 "meaning": "The text does not say how soon. Ask your teacher if you need a date."}],
+    "instructions": accessible.instructions(text)}
 if __name__ == "__main__":
     ui.launch(ui.build(), server_name="127.0.0.1", server_port=7861, inbrowser=False)

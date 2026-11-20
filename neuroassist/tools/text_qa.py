@@ -77,7 +77,9 @@ def run(question, files, route, session) -> Answer:
     doc = session.memo(path, "document", lambda: load_document(path))
     if route.task == "summarize":
         text = llm.chat(config.CARD_MODEL,
-                        f"Document:\n<<<\n{doc}\n>>>\n\n{question}\nAnswer in at most 5 short bullet points.",
+                        f"Document:\n<<<\n{doc}\n>>>\n\n{question}\nAnswer in at most 5 short bullet points. "
+                        "Use your own simple, everyday words: do NOT copy sentences from the document. "
+                        "Each bullet under 15 words. Keep every number and date exactly as written.",
                         num_ctx=config.NUM_CTX_DOC, max_tokens=300)
         return Answer(text.strip())
     return answer_from_text(question, doc)

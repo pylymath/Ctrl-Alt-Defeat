@@ -97,9 +97,12 @@ def split_questions(question: str) -> list[str]:
 def _core(question: str, files: list, session: Session, trace: list, label: str = "answer") -> Answer:
     r = router.route(question, files)
     if r.task == "rewrite":
-        what = " and ".join(x for x, m in (("in plain language", "plain"), ("with literal meanings", "literal"))
-                            if m in r.modifiers)
-        ans = Answer(f"Here is your {r.kind} {what}.")
+        parts = [x for x, m in (("in plain language", "plain"), ("with literal meanings", "literal"))
+                 if m in r.modifiers]
+        if "flashcards" in r.modifiers and not parts:
+            ans = Answer("Here are flashcards to quiz yourself. Tap a card to see the answer.")
+        else:
+            ans = Answer(f"Here is your {r.kind} {' and '.join(parts)}.")
         ans.route = r
         return ans
     handler = _handlers()[r.kind]

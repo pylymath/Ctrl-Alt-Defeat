@@ -74,8 +74,11 @@ def route(question: str, files: list | tuple = ()) -> Route:
     task = _rules(question, kind)
     # "Put this in plain language" / "what does the teacher really mean?" asks for a rewrite of the
     # whole input, not a fact from it, so it skips grounded QA (which would answer "does not say").
-    if task is None and kind in ("document", "audio", "code") and {"plain", "literal"} & set(mods):
+    # "Quiz me" too: flashcards are made from the whole file, so no Q&A answer is needed above them.
+    if task is None and kind in ("document", "audio", "code", "video") and {"plain", "literal", "flashcards"} & set(mods):
         return Route(kind, "rewrite", mods, "rules")
+    if task == "summarize" and "card" in mods:
+        mods.remove("card")          # the summary IS the card: don't show the same points twice
     if task:
         return Route(kind, task, mods, "rules")
     # The resident model only breaks ties where a wrong default is costly: a bare chat request.

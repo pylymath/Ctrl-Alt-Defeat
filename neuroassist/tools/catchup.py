@@ -19,8 +19,8 @@ INSTRUCTION = re.compile(r"\b(must|should|need to|have to|make sure|remember|don
 
 RECAP = {"type": "object", "required": ["points"], "properties": {"points": {
     "type": "array", "maxItems": 6, "items": {
-        "type": "object", "required": ["time", "text"], "properties": {
-            "time": {"type": "string"}, "text": {"type": "string"}}}}}}
+        "type": "object", "required": ["line", "text"], "properties": {
+            "line": {"type": "integer"}, "text": {"type": "string"}}}}}}
 
 
 def parse_window(question: str) -> tuple[float | None, float | None]:
@@ -52,25 +52,28 @@ def catch_up(segments: list[dict], start: float, end: float | None = None, visua
     out = {"start": start, "end": end, "points": [], "instructions": [], "window": win}
     if not win and not vis:
         return out
-    log = "\n".join([f"[{mmss(s['start'])}] {s['text']}" for s in win]
-                    + [f"[{mmss(e['t'])}] (on screen) {e['description']}" for e in vis])
-    text = " ".join(s["text"] for s in win) + " " + " ".join(e["description"] for e in vis)
-    stamps = sorted({s["start"] for s in win} | {e["t"] for e in vis})
+    # Numbered lines: small models refer to "line 3" far more reliably than to "[02:14]".
+    lines = sorted([(s["start"], s["text"]) for s in win] + [(e["t"], f"(on screen) {e['description']}") for e in vis])
+    log = "\n".join(f"{i}. [{mmss(t)}] {txt}" for i, (t, txt) in enumerate(lines, 1))
+    text = " ".join(txt for _, txt in lines)
 
     r = llm.chat_json(config.TEXT_MODEL,
-                      f"Part of a lecture recording, from {mmss(start)} to {mmss(end)}:\n{log}\n\n"
-                      "A student lost focus at the start of this part. Recap it in 2 to 6 short points, in time "
-                      "order, plain words, only what is in the text. 'time' = the [mm:ss] of the line the point "
-                      "comes from.", RECAP, num_ctx=config.NUM_CTX_DOC, max_tokens=500)
+                      f"Part of a lecture recording, from {mmss(start)} to {mmss(end)}, one numbered line each:\n"
+                      f"{log}\n\nA student lost focus at the start of this part. Recap it in 2 to 6 short points, in "
+                      "time order, in plain words of your own, only what the lines say. 'line' = the number of the "
+                      "line the point comes from.", RECAP, num_ctx=config.NUM_CTX_DOC, max_tokens=500)
+    seen = set()
     for p in r.get("points", []):
-        if not isinstance(p, dict) or not p.get("text"):
+        if not isinstance(p, dict) or not p.get("text") or unknown_numbers(p["text"], text):
             continue
-        t = parse_time(str(p.get("time", "")).strip("[] "))
-        if t is None or not stamps or unknown_numbers(p["text"], text):
+        try:
+            k = int(str(p.get("line", "")).strip(". "))
+        except ValueError:
             continue
-        t = min(stamps, key=lambda s: abs(s - t))       # snap to a real line in the window
-        if abs(t - (parse_time(str(p.get('time', '')).strip('[] ')) or t)) > 15:
-            continue                                      # a time far from any real line: dropped
+        if not 1 <= k <= len(lines) or (k, p["text"]) in seen:
+            continue                                      # a line that doesn't exist: dropped
+        seen.add((k, p["text"]))
+        t = lines[k - 1][0]
         out["points"].append({"t": t, "loc": mmss(t), "text": p["text"].strip()})
     out["points"].sort(key=lambda p: p["t"])
     # Instructions are kept word for word (not rewritten): they are what students act on.

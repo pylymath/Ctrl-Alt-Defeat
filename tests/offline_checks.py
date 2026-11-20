@@ -102,10 +102,10 @@ def fake_json(model, prompt, schema, **kw):
     if "actions" in props:
         return {"actions": ["Open lab4.py", "Write the function signature", "Add the loop"]}
     if "points" in props:
-        return {"points": [{"time": "00:05", "text": "Remove missing rows first."},
-                           {"time": "00:09", "text": "Start with a window size of three."},
-                           {"time": "07:30", "text": "Something never said."},             # not in window: dropped
-                           {"time": "00:09", "text": "Use 12 readings."}]}                 # unknown number: dropped
+        return {"points": [{"line": 1, "text": "Remove missing rows first."},
+                           {"line": 2, "text": "Start with a window size of three."},
+                           {"line": 9, "text": "Something never said."},                  # no such line: dropped
+                           {"line": 2, "text": "Use 12 readings."}]}                      # unknown number: dropped
     if "gist" in props:
         return {"gist": "Lab 4 asks you to smooth sensor data and submit code, a plot and a reflection.",
                 "details": ["Submit lab4.py", "Plot raw and smoothed data", "Reflection: 150 to 200 words",
@@ -338,7 +338,19 @@ audio.transcribe = lambda path: {"text": "What must I submit?", "segments": [], 
 vb, vm = ui.voice_to_text("rec.wav", {"text": "Lab 4:", "files": ["a.txt"]})
 check("speech goes into the composer, keeping typed text and files",
       vb == {"text": "Lab 4: What must I submit?", "files": ["a.txt"]} and vm is None)
+audio.transcribe = lambda path: {"text": "Catch me up", "segments": [], "has_speech": True}
+doc_path = str(DEMO / "assignment.txt")
+out = ui.sync_files({"text": "", "files": [doc_path, "C:/tmp/gradio/abc/audio.wav"]}, [])
+check("mic recording becomes text and is removed from the files",
+      out[0] == [doc_path] and out[4] == {"text": "Catch me up", "files": [doc_path]})
+check("code actions appear only when a file has code", out[3]["visible"] is True and out[2]["visible"] is False)
+out2 = ui.sync_files({"text": "x", "files": [str(DEMO / "voice_note.wav")]}, [])
+check("catch-up action appears for a recording", out2[2]["visible"] is True and out2[3]["visible"] is False)
 audio.transcribe = lambda path: TRANSCRIPT
+w2 = wsp.Workspace.load("Lab 4")
+before = w2.next_step()["id"]
+w2.skip()
+check("skip moves on without marking done", w2.next_step()["id"] != before and not w2.step(before)["done"])
 check("easier highlights unclear phrases", "<mark" in ui.render_easier({**e, "original": ASSIGNMENT}, 0, *look))
 
 print(f"\n{passed} passed, {failed} failed")
