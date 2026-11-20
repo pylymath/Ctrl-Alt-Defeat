@@ -16,12 +16,15 @@ Files are in `assets\demo\`. We made them all ourselves:
 - `lecture.wav`: a 94-second lecture
 - `process.mp4`
 
-The app has a **sidebar on the left** for reading settings and the open assignment, and three tabs: **Understand · Do · Resume**.
+The app has a **composer** at the top (type, paperclip, or drop files; **Ask** or Enter sends), a **sidebar on the left** for
+reading settings and the open assignment, and three tabs: **Understand · Do · Resume**. Questions are typed into the
+composer; a chip fills it for you, then press **Ask**.
 
 ## Backstage, before either talk (5 min)
 1. `run.bat`. The sidebar's "Running locally" pills show every model, with none marked "missing".
 2. Sidebar: font *Dyslexia-friendly*, text size 20 (readable on a projector), background *Auto*.
-3. Upload the files that talk needs (listed below), and ask one warm-up question so the model is loaded.
+3. Attach the files that talk needs (listed below): drag them onto the **composer** (the big box at the top) or use its
+   paperclip. Then ask one warm-up question so the model is loaded. Attached files stay until you remove them.
 4. In **Do**, press **Help me start** once with a fresh name, so the slow part is done. Say on stage that it was
    "prepared before the session".
 
@@ -29,7 +32,7 @@ The app has a **sidebar on the left** for reading settings and the open assignme
 
 # ROUND 1 (5 minutes): "Lab 4: one assignment, five kinds of input"
 
-Upload: `assignment.txt`, `diagram.png`, `voice_note.wav`, `process.mp4`. **Help me start** is done backstage as `Lab 4`.
+Attach: `assignment.txt`, `diagram.png`, `voice_note.wav`, `process.mp4`. **Help me start** is done backstage as `Lab 4`.
 
 | Time | Driver clicks | Speaker says |
 |---|---|---|
@@ -55,7 +58,7 @@ code moment: writing a new function from a prompt.
 
 # FINAL (15 minutes): "A week with Percie"
 
-A different story with different interactions. Upload **all five** files: `lecture.wav`, `assignment.txt`,
+A different story with different interactions. Attach **all five** files: `lecture.wav`, `assignment.txt`,
 `diagram.png`, `voice_note.wav`, `process.mp4`. Backstage, **Help me start** as `Week demo`, with "Also connect
 photos and videos" ticked.
 

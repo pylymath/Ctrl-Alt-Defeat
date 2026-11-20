@@ -95,6 +95,13 @@ button[role="tab"] { font-size: 1rem !important; color: var(--na-muted) !importa
 button[role="tab"][aria-selected="true"] { color: var(--na-ink) !important; font-weight: 600 !important;
                      box-shadow: inset 0 -2px 0 var(--na-sage) !important; }
 
+/* composer: one calm box for typing, the paperclip and drag-and-drop */
+.na-composer { border-radius: 20px !important; box-shadow: 0 6px 24px rgba(60,50,40,.07) !important;
+               border: 1px solid var(--na-line) !important; }
+.na-composer textarea { font-size: 1.05rem !important; line-height: 1.5 !important; }
+.na-composer button[aria-label*="ubmit"], .na-composer .submit-button { border-radius: 999px !important; }
+.na-under { align-items: end !important; margin-top: 4px; }
+
 /* chips */
 .na-chips { gap: 8px !important; flex-wrap: wrap !important; }
 .na-chips button { border-radius: 999px !important; font-weight: 500 !important; min-width: 0 !important;
@@ -455,7 +462,13 @@ def details_html(res: dict | None) -> str:
 
 
 def _paths(files) -> list[str]:
-    return [f if isinstance(f, str) else getattr(f, "name", str(f)) for f in (files or [])]
+    def one(f):
+        if isinstance(f, str):
+            return f
+        if isinstance(f, dict):
+            return f.get("path") or f.get("name") or ""
+        return getattr(f, "path", None) or getattr(f, "name", str(f))
+    return [p for p in (one(f) for f in (files or [])) if p]
 
 
 ALL, NONE = "All files together", "No file (just ask)"
@@ -465,6 +478,23 @@ def file_choices(files):
     names = [Path(p).name for p in _paths(files)]
     choices = names + ([ALL] if len(names) > 1 else []) + [NONE]
     return gr.update(choices=choices, value=names[0] if names else NONE)
+
+
+def sync_files(box, current):
+    """Keep the attached files (from the composer) in state; refresh 'Ask about' only when they change,
+    so typing never resets the user's choice."""
+    new = _paths((box or {}).get("files"))
+    if new == (current or []):
+        return gr.skip(), gr.skip()
+    return new, file_choices(new)
+
+
+def submit(box, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session):
+    """Composer submit: answer, clear the typed text (keep the files), and show the Understand tab."""
+    question = ((box or {}).get("text") or "").strip()
+    out = ask(question, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session)
+    kept = {"text": "", "files": (box or {}).get("files", [])}
+    return (*out, kept, gr.Tabs(selected="understand"))
 
 
 def _pick(files, which) -> list[str]:
@@ -853,20 +883,30 @@ def build() -> gr.Blocks:
             # --- Header + materials ------------------------------------------------------------------------
             gr.HTML("<div class='na-head'><h1>Percie</h1><p>Understand your materials, get started, "
                     "and find your place again. Nothing leaves this laptop.</p></div>")
-            files = gr.File(label="Your materials: assignment, slides, recording, photo, video or code",
-                            file_count="multiple", type="filepath", height=120)
+            # --- Composer: type, click the paperclip, or drop files onto it. Shared by all three tabs. --------
+            box = gr.MultimodalTextbox(file_count="multiple", show_label=False, lines=2, max_lines=8, autofocus=True,
+                                       submit_btn="Ask", elem_classes="na-composer",
+                                       placeholder="Ask anything, or drop your files here: assignment, slides, "
+                                                   "recording, photo, video or code")
+            files = gr.State([])
+            with gr.Row(equal_height=True, elem_classes="na-under"):
+                which = gr.Dropdown([NONE], value=NONE, label="Ask about", scale=1, min_width=220)
+                with gr.Column(scale=3):
+                    with gr.Row(elem_classes="na-chips"):
+                        quick = [gr.Button(label, size="sm", variant="secondary") for label, _ in QUICK]
 
-            with gr.Tabs():
+            with gr.Tabs(selected="understand") as tabs:
                 # ---- Understand ----
-                with gr.Tab("Understand"):
+                with gr.Tab("Understand", id="understand"):
                     with gr.Row(equal_height=False):
-                        with gr.Column(scale=2, min_width=320):
-                            which = gr.Dropdown([NONE], value=NONE, label="Ask about")
-                            question = gr.Textbox(show_label=False, lines=3, autofocus=True,
-                                                  placeholder="Ask anything about your file, e.g. What must I submit?")
-                            with gr.Row(elem_classes="na-chips"):
-                                quick = [gr.Button(label, size="sm", variant="secondary") for label, _ in QUICK]
-                            ask_btn = gr.Button("Ask", variant="primary", size="lg")
+                        with gr.Column(scale=3, min_width=360):
+                            result = gr.HTML(render(None, *look_default))
+                            speech = gr.Audio(label="Read aloud", type="filepath", interactive=False, autoplay=True,
+                                              visible=False)
+                            captions = gr.File(label="Captions (.vtt)", interactive=False, visible=False)
+                            with gr.Accordion("How I got this answer", open=False):
+                                details = gr.HTML()
+                        with gr.Column(scale=2, min_width=300):
                             with gr.Accordion("I lost the thread (catch me up)", open=False):
                                 when = gr.Textbox(label="From when in the recording?",
                                                   placeholder="12:40   ·   2:00 to 3:30   ·   empty = last 5 minutes")
@@ -876,14 +916,7 @@ def build() -> gr.Blocks:
                                     more_quick = [gr.Button(label, size="sm", variant="secondary")
                                                   for label, _ in MORE_QUICK]
                                 outputs = gr.CheckboxGroup(list(OUTPUTS), label="Also give me", value=[])
-                        with gr.Column(scale=3, min_width=360):
-                            result = gr.HTML(render(None, *look_default))
-                            speech = gr.Audio(label="Read aloud", type="filepath", interactive=False, autoplay=True,
-                                              visible=False)
-                            captions = gr.File(label="Captions (.vtt)", interactive=False, visible=False)
-                            with gr.Accordion("How I got this answer", open=False):
-                                details = gr.HTML()
-                    with gr.Accordion("Make this easier: paste a passage, or leave it empty to use the file above",
+                    with gr.Accordion("Make this easier: paste a passage, or leave it empty to use the attached file",
                                       open=False):
                         with gr.Row(equal_height=False):
                             with gr.Column(scale=2, min_width=320):
@@ -897,7 +930,7 @@ def build() -> gr.Blocks:
                                 easy_out = gr.HTML()
 
                 # ---- Do ----
-                with gr.Tab("Do"):
+                with gr.Tab("Do", id="do"):
                     with gr.Row(equal_height=False):
                         with gr.Column(scale=2, min_width=320):
                             name_box = gr.Textbox(label="Assignment name", placeholder="e.g. Lab 4")
@@ -931,7 +964,7 @@ def build() -> gr.Blocks:
                             code_out = gr.HTML()
 
                 # ---- Resume ----
-                with gr.Tab("Resume"):
+                with gr.Tab("Resume", id="resume"):
                     with gr.Row():
                         with gr.Column(scale=1, min_width=240):
                             where_btn = gr.Button("Where was I?", variant="primary", size="lg")
@@ -939,17 +972,18 @@ def build() -> gr.Blocks:
                             resume = gr.HTML()
 
         # --- wiring --------------------------------------------------------------------------------------
-        files.change(file_choices, files, which)
-        inputs = [question, files, which, outputs, rate, *look, bionic, ws_name, session]
-        results = [result, speech, captions, details, last, session]
+        # Files attached in the composer (paperclip or drag-and-drop) are kept until removed with their x,
+        # so follow-up questions and Help me start use them too.
+        box.change(sync_files, [box, files], [files, which], show_progress="hidden")
+        inputs = [box, files, which, outputs, rate, *look, bionic, ws_name, session]
+        results = [result, speech, captions, details, last, session, box, tabs]
         # After an answer arrives, draw it again with the reading settings as they are NOW (they may have
         # been changed while the model was still working).
         redraw = dict(fn=render, inputs=[last, *look, bionic], outputs=result, show_progress="hidden")
-        ask_btn.click(ask, inputs, results).then(**redraw)
-        question.submit(ask, inputs, results).then(**redraw)
-        catch_btn.click(catch_me_up, [when, *inputs[1:]], results).then(**redraw)
+        box.submit(submit, inputs, results).then(**redraw)
+        catch_btn.click(catch_me_up, [when, *inputs[1:]], results[:6]).then(**redraw)
         for btn, (_, text) in list(zip(quick, QUICK)) + list(zip(more_quick, MORE_QUICK)):
-            btn.click(lambda t=text: t, None, question)
+            btn.click(lambda v, t=text: {"text": t, "files": (v or {}).get("files", [])}, box, box)
 
         easy_in = [easy_res, easy_idx, *look, bionic]
         easy_btn.click(make_easier, [passage, files, which, session], [easy_res, easy_idx, session]) \
