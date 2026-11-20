@@ -1,6 +1,6 @@
 # Percie
 
-## IEEE Hackathon Submission
+## IEEE Hackathon Submission - November 20, 2026
 
 > The code keeps its working name: the Python package `neuroassist/`, settings `NEUROASSIST_*` /
 > `neuroassist.env`, and the model `neuro-doc-qa`. Only the product name changed, so existing setups keep working.
