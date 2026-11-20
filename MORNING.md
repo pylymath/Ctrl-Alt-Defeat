@@ -64,7 +64,8 @@ The browser opens at http://127.0.0.1:7860. Check:
 - the tabs **Understand · Do · Resume** are there, and the colours are calm (warm paper, sage green);
 - tick **Bionic reading** in the sidebar: the first half of each word turns bold straight away.
 
-Quick test: upload `assets\demo\assignment.txt` and ask `What must I submit?`. The answer should mention lab4.py.
+Quick test: drag `assets\demo\assignment.txt` onto the big box at the top (or click its paperclip), type
+`What must I submit?` and press Enter. The answer should mention lab4.py, and the file should stay attached.
 
 ## Step 5: run the eval in a SECOND PowerShell window (25–35 min)
 Open another PowerShell in the v2 folder (Step 2 again), then:
