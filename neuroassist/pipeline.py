@@ -55,6 +55,8 @@ def _model_for(r: Route) -> str:
         return f"whisper-{config.WHISPER_MODEL} + {config.TEXT_MODEL}"
     if r.task == "explain_code":
         return f"python (runs it) + {config.CODE_MODEL}"
+    if r.task == "at_time":
+        return f"whisper-{config.WHISPER_MODEL} + {config.QA_MODEL}"
     if r.kind == "code" or r.task == "write_code":
         return config.CODE_MODEL
     return config.CARD_MODEL if r.task == "summarize" else config.QA_MODEL
@@ -129,6 +131,12 @@ def _core(question: str, files: list, session: Session, trace: list, label: str 
     elif r.task == "explain_code":
         from .tools import code_explain
         handler = code_explain.run_tool
+    elif r.task == "at_time":
+        from .tools import catchup
+        handler = catchup.at_time
+    elif r.task == "transcribe" and r.kind == "video":     # a video's sound track, with timestamps
+        from .tools import audio
+        handler = audio.run
     ans = _step(trace, f"{label}: {r.kind} / {r.task}", _model_for(r),
                 lambda: handler(question, files, r, session))
     ans.route = r

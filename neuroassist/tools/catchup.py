@@ -82,6 +82,50 @@ def catch_up(segments: list[dict], start: float, end: float | None = None, visua
     return out
 
 
+TIME_PHRASE = re.compile(r"\b(?:at|around|near|about|by)?\s*\d{1,2}:\d{2}(?::\d{2})?\b", re.I)
+GENERIC = re.compile(r"what (?:did|does|was|is|were)\b.*\b(?:say|said|talk|talking|saying|happen|happening|going on|"
+                     r"mention|discuss)|what'?s (?:said|happening)|^\W*$", re.I)
+
+
+def at_time(question, files, route, session) -> Answer:
+    """'What did she say at 1:20?' -> the exact lines around 1:20, with their timestamps (no model).
+    'What window size does she suggest around 0:45?' -> a checked answer from just that part, with the
+    timestamp of the sentence it came from."""
+    from . import audio, video
+    from .text_qa import answer_from_text, quote_in_source
+    path = files[0]
+    t, _ = parse_window(question)
+    if t is None or t < 0:
+        return Answer("Tell me the time, e.g. 'What did she say at 1:20?'", abstain=True,
+                      evidence={"reason": "no time in the question"})
+    segments, visual = [], None
+    try:
+        segments = session.memo(path, "transcript", lambda: audio.transcribe(path), config.WHISPER_MODEL)["segments"]
+    except Exception:
+        pass
+    if route.kind == "video":
+        visual, _ = video.timeline(path, session)
+    lo, hi = max(0.0, t - 10), t + 20
+    win = [s for s in segments if s["end"] > lo and s["start"] < hi]
+    vis = [e for e in visual or [] if lo <= e["t"] <= hi]
+    lines = sorted([(s["start"], s["text"]) for s in win] + [(e["t"], f"(on screen) {e['description']}") for e in vis])
+    ev = {"at_time": {"t": t, "loc": mmss(t), "lines": [{"t": a, "loc": mmss(a), "text": b} for a, b in lines[:12]]}}
+    if not lines:
+        return Answer(f"Nothing was said or shown around {mmss(t)}.", abstain=True, evidence=ev)
+    rest = TIME_PHRASE.sub(" ", question).strip(" ?.,")
+    if GENERIC.search(rest) or len(rest.split()) < 3:
+        body = "\n".join(f"[{mmss(a)}] {b}" for a, b in lines[:6])
+        return Answer(f"Around {mmss(t)}:\n{body}", evidence=ev, confidence=1.0)
+    text = "\n".join(b for _, b in lines)
+    ans = answer_from_text(rest + "?", text, source="recording")
+    quote = ans.evidence.get("quote")
+    if quote and not ans.abstain:
+        at = next((a for a, b in lines if quote_in_source(quote, b)), lines[0][0])
+        ans.answer = f"[{mmss(at)}] {ans.answer}"
+    ans.evidence.update(ev)
+    return ans
+
+
 def run(question, files, route, session) -> Answer:
     from . import audio, video
     path = files[0]

@@ -242,6 +242,13 @@ check("document QA answer with its checked quote", a.answer == "lab4.py" and a.e
 check("trace records the step", a.steps and a.steps[0]["ok"] and "document / qa" in a.steps[0]["step"])
 a = pipeline.answer("I zoned out, catch me up from 0:04", [str(DEMO / "voice_note.wav")], pipeline.Session())
 check("catch-up routed through the pipeline", a.route.task == "catchup" and "[00:04]" in a.answer, a.answer)
+a = pipeline.answer("What did she say at 0:05?", [str(DEMO / "voice_note.wav")], pipeline.Session())
+check("question about a moment returns the exact lines with timestamps",
+      a.route.task == "at_time" and "[00:04]" in a.answer and "missing temperatures" in a.answer, a.answer)
+a = pipeline.answer("Transcribe this word for word.", [str(DEMO / "voice_note.wav")], pipeline.Session(), extras=False)
+from neuroassist import ui as _ui
+check("transcript shows each line with its time", "na-tr" in _ui.render(a.to_dict(), "Standard", 18, 1.7, "Auto")
+      and "00:08" in _ui.render(a.to_dict(), "Standard", 18, 1.7, "Auto"))
 a = pipeline.answer("Catch me up", [str(DEMO / "voice_note.wav")], pipeline.Session())
 check("catch-up without a time asks for one", a.abstain and "12:40" in a.answer)
 a = pipeline.answer("Rewrite this in plain language", [str(DEMO / "assignment.txt")], pipeline.Session())

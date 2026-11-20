@@ -93,6 +93,8 @@ CSS = """
 /* clickable step checklist: ticked steps are crossed out */
 .na-steplist label { border-radius: 10px !important; padding: 8px 12px !important; width: 100%; }
 .na-steplist label:has(input:checked) span { text-decoration: line-through; opacity: .55; }
+.na-tr { padding: 4px 0; border-bottom: 1px solid #8881; }
+.na-tr .na-loc { margin: 0 8px 0 0; }
 .na-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 2px 8px; }
 .na-tagfile { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; padding: 4px 10px;
               border-radius: 999px; background: var(--na-sage-soft); color: var(--na-ink); max-width: 100%; }
@@ -384,9 +386,19 @@ def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bion
             out.append(f"<span class='na-badge {'na-ok' if ev['examples_passed'] == ev['examples_total'] else 'na-warn'}'>"
                        f"Passed {ev['examples_passed']}/{ev['examples_total']} examples from the prompt</span>")
         out.append(f"<div class='na-code' style='background:{surface}'>{_esc(res['answer'])}</div>")
+    elif route.get("task") == "transcribe" and (res.get("evidence") or {}).get("segments"):
+        # Transcript: one line per sentence, each with the time it was said.
+        out.append(f"<h3>{T('Transcript')}</h3>" + "".join(
+            f"<div class='na-tr'><span class='na-loc'>{int(s['start']) // 60:02d}:{int(s['start']) % 60:02d}</span> "
+            f"{T(s['text'])}</div>" for s in res["evidence"]["segments"]))
     else:
         lines = [ln for ln in str(res["answer"]).split("\n") if ln.strip()]
         out.append("".join(f"<p class='na-answer'>{T(ln)}</p>" for ln in lines))
+    at = (res.get("evidence") or {}).get("at_time")
+    if at and at.get("lines") and not str(res.get("answer", "")).startswith("Around"):
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>{T('What was said around')} {at['loc']}</h3>"
+                   + "".join(f"<div class='na-tr'><span class='na-loc'>{l['loc']}</span> {T(l['text'])}</div>"
+                             for l in at["lines"]) + "</div>")
     if route.get("task") == "explain_code" and (res.get("evidence") or {}).get("code"):
         out.append(_code_report(res["evidence"], T, surface))
 
@@ -894,12 +906,13 @@ ACTIONS = {   # label: (kind, question)
     "What does it mean?": ("ask", "What does the teacher really mean? Explain anything vague literally."),
     "Quiz me": ("ask", "Make flashcards to quiz me on this."),
     "Catch me up": ("catchup", None),
+    "Transcript": ("ask", "Transcribe this word for word."),
     "Run the code": ("ask", "Explain this code and run it."),
     "Fix the code": ("ask", "Fix this code."),
     "Write the code": ("write", None),
 }
 CORE = ["Explain simply", "Key points", "Make it easier", "What does it mean?", "Quiz me"]
-WHEN_RECORDING, WHEN_CODE = ["Catch me up"], ["Run the code", "Fix the code", "Write the code"]
+WHEN_RECORDING, WHEN_CODE = ["Transcript", "Catch me up"], ["Run the code", "Fix the code", "Write the code"]
 
 CODE_TEXT = re.compile(r"^\s*(def \w+\s*\(|class \w+|import \w|from [\w.]+ import |for .+:\s*$|while .+:\s*$|"
                        r"print\(|return\b|>>> )", re.M)
