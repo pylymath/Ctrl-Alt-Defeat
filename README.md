@@ -3,7 +3,7 @@
 Offline multimodal assistant for students with ADHD and dyslexia. One interface for photos,
 audio, documents, code and short videos; every model runs locally through Ollama, with no internet.
 
-**Run it:** `python -m neuroassist.ui` opens the app at http://127.0.0.1:7860 (local only, Gradio
+**Install:** see [Install](#install-any-windows-mac-or-linux-computer). **Run it:** `run.bat` or `python -m neuroassist.ui` opens the app at http://127.0.0.1:7860 (local only, Gradio
 analytics off). `--lan` also serves it to phones on the same Wi-Fi; inference stays on the laptop.
 
 ## How it works
@@ -84,32 +84,48 @@ never uploaded. Labels keep three things apart: **what a file says** (quotes, wi
 
 `DEMO.md` is the 5-minute demo script; `assets/demo/` holds its files.
 
-## Setup on the demo laptop (Legion)
+## Install (any Windows, Mac or Linux computer)
 
-1. **Ollama memory settings.** Set these once in PowerShell, then quit and reopen the Ollama app:
-   ```powershell
-   setx OLLAMA_FLASH_ATTENTION 1
-   setx OLLAMA_KV_CACHE_TYPE q8_0
-   setx OLLAMA_MAX_LOADED_MODELS 1
-   setx OLLAMA_NUM_PARALLEL 1
-   ```
-2. **Models:**
-   ```powershell
-   ollama pull qwen3-vl:4b-instruct   # -instruct: the plain `4b` tag is the thinking model
-   ollama pull qwen2.5-coder:3b
-   ```
-   With 12 GB+ of VRAM, also try `qwen3-vl:8b` via `$env:NEUROASSIST_VISION_MODEL="qwen3-vl:8b"` and keep
-   whichever scores better.
-3. **Python** (3.10+):
-   ```powershell
-   python -m venv .venv
-   .venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-4. **Data:** keep the practice pack outside the repo and point to it:
-   `$env:NEUROASSIST_DATA="C:\path\to\practice_pack"`. Never commit it (see `.gitignore`).
-5. **While still online, run once:** `python -m neuroassist.prefetch`
-   It downloads the Whisper and sound-classifier weights. Without this step, audio fails with Wi-Fi off.
+One command sets everything up. You need internet for this step only; after it, the app works offline.
+
+**Windows** (PowerShell, in the repo folder):
+```powershell
+git clone https://github.com/pylymath/Ctrl-Alt-Defeat
+cd Ctrl-Alt-Defeat
+powershell -ExecutionPolicy Bypass -File install.ps1
+run.bat
+```
+**Mac / Linux:**
+```bash
+git clone https://github.com/pylymath/Ctrl-Alt-Defeat && cd Ctrl-Alt-Defeat
+chmod +x install.sh run.sh && ./install.sh && ./run.sh
+```
+
+What the installer does (`install.ps1` / `install.sh` → `python -m neuroassist.installer`):
+
+1. Finds Python 3.10–3.12 and Ollama. If either is missing, it offers to install it (winget on Windows).
+2. Creates `.venv` and installs the packages (CPU-only PyTorch, so it's small).
+3. Starts Ollama if needed, with low-memory settings (one request at a time, 8-bit context memory).
+4. Picks a profile for the hardware: a 6 GB+ NVIDIA GPU, Apple silicon with 16 GB+, or 24 GB+ RAM gets
+   `qwen3-vl:4b-instruct`; anything smaller gets `qwen3-vl:2b-instruct`. Then it pulls that model and `qwen2.5-coder:3b`.
+5. Imports our fine-tuned document-QA model if you give it one:
+   `install.ps1 -Finetunes D:\neuroassist-finetunes` (a folder or USB stick), or
+   `install.ps1 -HfRepo USER/neuroassist-finetunes` (Hugging Face). Without one, document QA uses the stock model.
+6. Downloads Whisper and the sound classifier, so audio works offline.
+7. Writes `neuroassist.env` (this machine's settings; git-ignored, and nothing global is changed), then asks
+   one live test question and prints the time and GPU memory.
+
+`run.bat` / `./run.sh` checks the status and opens the app at http://127.0.0.1:7860. Add `--lan` to open it from
+a phone on the same Wi-Fi; inference stays on the computer. To see what's installed:
+`python -m neuroassist.installer --check`.
+
+**Sharing the fine-tune.** The GGUF (~2 GB) is too big for GitHub. Upload the `neuro-doc-qa` folder (the `.gguf` and
+its `Modelfile`) to a Hugging Face model repo, for example from Colab:
+`huggingface-cli upload USER/neuroassist-finetunes /content/drive/MyDrive/neuroassist-finetunes/neuro-doc-qa neuro-doc-qa`.
+Check the base model's licence before making it public (Qwen2.5-3B uses the Qwen research licence).
+
+**Practice data** (eval only): keep it outside the repo and set `NEUROASSIST_DATA=C:\path\to\practice_pack`,
+or add that line to `neuroassist.env`. Never commit it (see `.gitignore`).
 
 ## Eval
 

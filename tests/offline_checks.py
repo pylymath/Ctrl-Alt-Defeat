@@ -247,7 +247,36 @@ a = pipeline.answer("Rewrite this in plain language", [str(DEMO / "assignment.tx
 check("plain-language request skips QA and returns the rewrite", a.route.task == "rewrite" and a.plain)
 llm.chat_json = _prev
 
-# --- 9. UI renders -----------------------------------------------------------------------------------------
+# --- 9. Installer pieces (no downloads) ------------------------------------------------------------------
+print("installer")
+from neuroassist import installer  # noqa: E402
+tmp = Path(tempfile.mkdtemp(prefix="na_inst_"))
+(tmp / "neuro-doc-qa").mkdir()
+(tmp / "neuro-doc-qa" / "unsloth.Q4_K_M.gguf").write_bytes(b"x")
+check("finds the fine-tune folder", installer.find_finetune(tmp) == tmp / "neuro-doc-qa")
+mf = installer.MODELFILE.format(gguf="unsloth.Q4_K_M.gguf")
+check("fallback Modelfile is ChatML and points at the gguf",
+      mf.startswith("FROM ./unsloth.Q4_K_M.gguf") and "<|im_start|>assistant" in mf and "{{ .Content }}" in mf)
+created = []
+installer.installed = lambda: set()
+installer.subprocess = SimpleNamespace(run=lambda cmd, cwd=None: (created.append((cmd, cwd)), SimpleNamespace(returncode=0))[1])
+check("imports with ollama create", installer.import_finetune(tmp) == "neuro-doc-qa:latest"
+      and created[0][0][:3] == ["ollama", "create", "neuro-doc-qa"])
+check("writes its own Modelfile when none came with it", (tmp / "neuro-doc-qa" / "Modelfile.neuroassist").exists())
+installer.ENV_FILE = tmp / "neuroassist.env"
+installer.write_settings({"NEUROASSIST_PROFILE": "lite", "NEUROASSIST_QA_MODEL": "neuro-doc-qa:latest"})
+installer.write_settings({"NEUROASSIST_QA_MODEL": ""})
+vals = config._read_settings(installer.ENV_FILE)
+check("settings file merges and keeps earlier values", vals.get("NEUROASSIST_PROFILE") == "lite"
+      and vals.get("NEUROASSIST_QA_MODEL") == "", vals)
+config._SETTINGS["NEUROASSIST_DEMO_X"] = "from-file"
+check("settings file is read", config._env("DEMO_X", "default") == "from-file")
+os.environ["NEUROASSIST_DEMO_X"] = "from-env"
+check("environment variable wins over the file", config._env("DEMO_X", "default") == "from-env")
+os.environ["NEUROASSIST_DEMO_X"] = ""
+check("empty value means 'use the default'", config._env("DEMO_X", "default") == "from-file")
+
+# --- 10. UI renders ----------------------------------------------------------------------------------------
 print("ui")
 from neuroassist import ui  # noqa: E402
 look = ("Dyslexia-friendly", 18, 1.7, "Cream")

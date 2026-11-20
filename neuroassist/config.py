@@ -1,7 +1,36 @@
-"""All tunables in one place. Every value can be overridden with an environment variable,
-so the eval script can compare settings without code changes."""
+"""All tunables in one place. Each value comes from, in order:
+    1. an environment variable NEUROASSIST_<NAME>   (the eval uses these to compare settings)
+    2. neuroassist.env in the repo root             (written by install.ps1 / install.sh; git-ignored)
+    3. the default below
+so a fresh machine needs no global changes (no setx)."""
 import os
 from pathlib import Path
+
+SETTINGS_FILE = Path(__file__).resolve().parents[1] / "neuroassist.env"
+
+
+def _read_settings(path: Path = SETTINGS_FILE) -> dict[str, str]:
+    out = {}
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                out[k.strip()] = v.strip().strip('"')
+    except FileNotFoundError:
+        pass
+    return out
+
+
+_SETTINGS = _read_settings()
+
+
+def _get(name: str):
+    """NEUROASSIST_<name> from the environment, else from neuroassist.env. Empty means unset."""
+    v = os.environ.get("NEUROASSIST_" + name)
+    if v in (None, ""):                     # an empty variable (e.g. setx NAME "") falls through to the file
+        v = _SETTINGS.get("NEUROASSIST_" + name)
+    return v if v not in (None, "") else None
 
 
 def _total_ram_gb() -> float:
@@ -30,12 +59,12 @@ PROFILES = {
     "standard": dict(vision="qwen3-vl:4b-instruct", whisper="small", video_max_frames=16, video_side=448,
                      image_side=1280, video_fps_dense=4.0, video_fps_sparse=1.0),
 }
-PROFILE = os.environ.get("NEUROASSIST_PROFILE") or ("lite" if _total_ram_gb() < 12 else "standard")
+PROFILE = _get("PROFILE") or ("lite" if _total_ram_gb() < 12 else "standard")
 _P = PROFILES[PROFILE]
 
 
 def _env(name, default, cast=str):
-    v = os.environ.get("NEUROASSIST_" + name)
+    v = _get(name)
     return cast(v) if v is not None else default
 
 

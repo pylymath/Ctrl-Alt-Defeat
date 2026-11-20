@@ -20,6 +20,7 @@ __pycache__/
 .venv/
 venv/
 .env
+neuroassist.env      # machine-specific settings written by the installer
 
 # Model weights (GBs; GitHub rejects files over 100 MB). Share via Drive or Hugging Face instead.
 models/

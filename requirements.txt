@@ -8,3 +8,8 @@ av>=16,<19          # PyAV 19 removed an option faster-whisper 1.2 still passes
 # Sound identification (AST on AudioSet). Pulls torch; skip it if you only need speech.
 transformers
 torch
+# Windows Smart App Control blocks very new compiled wheels ("An Application Control policy has blocked
+# this file"). These slightly older builds are signed/known and work.
+regex>=2025.10.22,<2026 ; sys_platform == "win32"
+pandas==2.3.3 ; sys_platform == "win32"
+huggingface_hub        # downloads the fine-tune when install --hf-repo is used

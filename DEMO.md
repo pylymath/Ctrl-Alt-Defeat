@@ -1,48 +1,39 @@
-# Demo script: 5 minutes, all five input types, one assignment
+# Presenting NeuroAssist
 
-**Headline:** understand my materials, help me start, help me get back on track. All five input types
-work underneath, all on this laptop.
+Two versions: **5 minutes** for round one, and **15 minutes** for the final. The 15-minute one is the
+5-minute one plus three extra sections, so you only learn one demo.
 
-The demo files are in `assets/demo/`. We made them ourselves with `scripts/make_demo_assets.py`; nothing comes from the practice pack.
+**Roles:** one **Driver** at the keyboard, who clicks and doesn't talk, and one or two **Speakers**, who talk and don't click.
+**One sentence to remember:** *"NeuroAssist helps students understand their materials, get started, and get back on
+track, all on this laptop."*
 
-| File | Input type | Used for |
+## Before you start (5 minutes, backstage)
+1. `run.bat`. The status line must show every model ✅.
+2. Upload the 4 files in `assets/demo/` (`assignment.txt`, `diagram.png`, `voice_note.wav`, `process.mp4`).
+3. In **2 · Do**, press **Help me start** once with the name `Lab 4`, so the slow part is already done.
+   Say on stage that it was prepared beforehand.
+4. Reading settings: font *Dyslexia-friendly*, background *Cream*, text size 20 (it reads well on a projector).
+5. Ask one warm-up question so the model is loaded.
+
+---
+
+## Round one: 5 minutes
+
+| Time | Driver clicks | Speaker says (short version) |
 |---|---|---|
-| `assignment.txt` | text | requirements, "not in your file", make this easier, Help me start |
-| `diagram.png` | image | describe a diagram and what its arrows connect |
-| `voice_note.wav` | audio | the TA's spoken instructions (one moves the deadline to **Thursday**), then a bell |
-| `process.mp4` | video | what happens first, and what happens next |
-| (typed prompt) | code | writes a function and runs the prompt's own examples |
+| **0:00** | Nothing; the app is on screen | "Many of us lose track of what an assignment wants, or lose our place in a lecture. That's not a reading problem, it's a connecting problem. NeuroAssist connects your materials, gives you a first step, and gets you back on track, offline." |
+| **0:30** | **1 · Understand**, *Ask about* `assignment.txt` → `What must I submit?` → open *How I got this answer* | "It answers only from your file and shows the sentence it used." |
+| **0:50** | Ask `How many references are required?` | "If the file doesn't say, it says so: *Not in your file*. No made-up answers." |
+| **1:05** | *Ask about* `diagram.png` → `What do the arrows connect?` (tick **Read aloud**) | "Photos and diagrams, read aloud if you want." |
+| **1:30** | *Ask about* `voice_note.wav` → `What sound is at the end?`, then **🧵 Catch me up** from `0:08` | "Recordings: it identifies sounds, and if you zoned out, it catches you up from a timestamp, with the TA's instructions word for word." |
+| **2:10** | *Ask about* `process.mp4` → `What happens first, and what happens next?` | "Video: what happened, in order." |
+| **2:35** | **2 · Do** → **💻 Write code** → paste the `moving_average` prompt (below) | "It writes code and runs the examples from your prompt: 3 of 3 pass. That means it passes these examples, not that it's proven correct." |
+| **3:10** | Scroll the **Do** tab: requirements, then the **⚠️ Check both: Friday vs Thursday** box | "Here's the main feature. The PDF says Friday. The TA's voice note says Thursday. NeuroAssist found both, shows where each came from, and doesn't pick one. Ask your teacher." |
+| **3:40** | **🔍 Make this smaller** on step 1 → tick **Focus mode** → **✅ Done** | "Too big to start? Make it smaller. Focus mode shows one step at a time." |
+| **4:05** | **3 · Resume** → **🧭 Where was I?** | "Come back tomorrow: your last step, your next step, and the question still open. All read from what you saved. Nothing is guessed." |
+| **4:30** | Switch to the results slide | "All five input types run on one laptop. What we tested and kept is on this slide. Thank you." |
 
-Start the app with `python -m neuroassist.ui`, then upload all four files at the top.
-
-## 0:00–0:25 · The person and the problem
-"For us, the problem isn't always understanding the material. It's keeping the instructions, the explanation
-and the next step connected, and finding our place again after losing focus. NeuroAssist does that on this
-laptop, without sending course files anywhere." Point at the status line: every model is local.
-
-## 0:25–1:10 · Text (1 · Understand, *Ask about*: `assignment.txt`)
-1. Ask `What must I submit?`. You get the answer plus the sentence it came from (open "How I got this answer").
-2. Ask `How many references are required?`. You get **"The document does not say."**, with the *Not in your file* badge.
-3. Open **🪄 Make this easier** and press it with the box left empty, so it uses the file. Show:
-   - the one-line gist, with "More detail" folded away;
-   - the instructions **one at a time** (press *Next instruction*);
-   - unclear phrases **highlighted in the original**. "go the extra mile" is labelled *Common meaning*;
-     "in a timely manner" is labelled *Not exact: the text doesn't say how soon*.
-
-## 1:10–1:35 · Image (*Ask about*: `diagram.png`)
-Ask `Describe this diagram and explain what the arrows connect.`, with **Read aloud** ticked.
-
-## 1:35–2:10 · Audio (*Ask about*: `voice_note.wav`)
-1. Ask `What does the TA say to do before computing the moving average?`. Answer: remove the rows with missing temperatures.
-2. Ask `What sound is at the end?`. You get a bell/chime, shown as a prediction with its score.
-3. Open **🧵 I lost the thread**, type `0:08`, and press **Catch me up**. You get a recap, each point with its
-   timestamp, and the instructions said in that part **word for word**.
-
-## 2:10–2:45 · Video (*Ask about*: `process.mp4`)
-Ask `What happens first, and what happens next?`. A window slides along the readings, and a result appears
-at each step. "How I got this answer" shows the frames or timeline it used.
-
-## 2:45–3:25 · Code (2 · Do → **💻 Write code for a step**)
+**Code prompt to paste:**
 ```python
 def moving_average(values, window):
     """Return the moving averages of `values` over `window` items.
@@ -55,44 +46,41 @@ def moving_average(values, window):
     []
     """
 ```
-The badge reads "Passed 3/3 examples from the prompt". Say: **it passes these examples; that is not proof it's correct.**
 
-## 3:25–4:25 · The signature moment (2 · Do, then 3 · Resume)
-1. Name it `Lab 4` and press **🚀 Help me start**. You get:
-   - **What your files say**, grouped into What to hand in / Deadlines / Rules and limits / How it's marked /
-     Optional. Each item shows the sentence and the exact place it came from (`assignment.txt · line 20`,
-     `voice_note.wav · 00:11`).
-   - **⚠️ Check both, they differ: Friday vs Thursday.** The PDF and the TA's voice note disagree.
-     NeuroAssist shows both and doesn't decide which is right. *This is "connect my materials".*
-   - **Suggested steps**, labelled as suggestions and kept separate from the requirements.
-2. Press **🔍 Make this smaller** on a step. It's replaced by smaller actions.
-3. Tick **Focus mode**. Only the current step shows, with the sentence it serves.
-4. Start a **10-minute timer**, then press **✅ Done** once.
-5. Go to **3 · Resume** and press **🧭 Where was I?**. It shows the last step finished, the next step and its source,
-   the last file and question, both deadlines, and "Still open: How many references are required?".
-   Say: **"This is read from the saved record. Nothing is guessed."**
+**If something fails live:** say *"This is the fallback we built for exactly this"*. Open *How I got this answer*,
+where retries and errors are listed, and move on to the next row. Don't debug on stage.
 
-## 4:25–5:00 · Evidence and close
-Show one slide with the eval results by input type and the local timings. "How I got this answer" also shows
-time, GPU memory and any retries for each step. Then show this table:
+---
 
-| Component | What we found | Decision |
+## The final: 15 minutes
+
+| Time | Section | What to show / say |
 |---|---|---|
-| Document QA | fine-tune: text 5→16/20, audio 14→17/20 | keep the fine-tune, for QA only |
-| Code | fine-tune 15/20 vs stock 19/20 | keep the stock coder |
-| Speech | fine-tune tied with stock | keep stock Whisper |
-| General text | the QA-only model hurt summaries, cards and video | separate QA_MODEL from TEXT_MODEL |
-| Video | the 10 failures were empty replies, not wrong answers | retry, then fall back to the other video mode |
-| Vision fine-tune | Ollama can't import Qwen2.5-VL safetensors | not deployed; stock vision |
-| GPU memory | 12–14 GB from 4× context memory and model reloads | 1 request at a time, fixed context per model |
+| **0–1** | **Hook** | The same opening as round one, plus one honest personal line about why this team built it. |
+| **1–3** | **Who it's for, and the problem** | A computing student with ADHD, autism or dyslexia. Three moments where they get stuck: *"What does this assignment actually want?"*, *"I zoned out, what did I miss?"*, *"I stopped yesterday, where was I?"*. Why offline matters: course files and recordings never leave the laptop. |
+| **3–8** | **Live demo** | The 5-minute demo, slower, plus these extras: **🪄 Make this easier** on the assignment (gist, then instructions one at a time, unclear phrases highlighted: "go the extra mile" → *common meaning*, "in a timely manner" → *the text doesn't say how soon*); the **work timer**; **Add your own step**; reading settings changed live. |
+| **8–11** | **How it works** (architecture slide) | One diagram: *file → router (rules, no model) → one model per job → checks → answer + evidence*. Models: Qwen3-VL 4B (vision and text), our fine-tuned Qwen2.5-3B for document Q&A, Qwen2.5-Coder 3B, Whisper small, the AST sound classifier. Then the **checks**: quotes must be found in the file, code runs the prompt's examples, invented numbers are dropped, empty replies are retried, then video switches mode. Open *How I got this answer* to show each step's model, time and GPU memory. |
+| **11–13** | **Evidence** (results slide + "what we tested and kept") | The eval table by input type. Fine-tuning: document Q&A went 5→16/20 on text, so we kept it; the coder got worse and Whisper tied, so we kept stock. The video failures were empty replies, which we fixed with a retry and a fallback. GPU memory was 12–14 GB, reduced with fixed context sizes and one request at a time. *Use the real numbers from the 8 am Legion run.* |
+| **13–14** | **Limits, honestly** | Linking files uses shared words, not understanding. Video is short clips only. A "check both" warning is a hint, not a ruling. We tested with our team only: a few people, early results. |
+| **14–15** | **Close** | "Understand your materials, start, and get back on track, offline. Anyone can install it with one command." Show the `install.ps1` line. |
 
-## Before going on stage
-- Run `scripts\ollama_settings.ps1` once, then restart Ollama.
-- Run the whole script once on the Legion and time it. If *Help me start* (with photos/videos) or the
-  video question is slow, run them before the demo and say on stage that they were processed beforehand.
-  Keep at least one generation live.
-- Start with a fresh assignment name so "Where was I?" shows only today's run. Saved assignments are in
-  `%USERPROFILE%\.neuroassist\workspaces\`.
-- Phone (optional): run `python -m neuroassist.ui --lan` and open `http://<laptop-ip>:7860` on the same Wi-Fi.
-  Inference stays on the laptop. Use it only on a trusted network, and ask the organizers whether it counts
-  for the web/mobile bonus.
+---
+
+## Judges' questions: short answers
+
+| Question | Answer |
+|---|---|
+| Why these models? | Small enough to run together on one laptop GPU. We measured each against stock and kept a fine-tune only where it won (document Q&A). |
+| What does your fine-tune actually improve? | Answering from a document with an exact quote: 5→16 of 20 on text, 14→17 of 20 on audio transcripts. |
+| How do you catch made-up answers? | The model must quote the sentence it used, and code checks that the sentence is really in the file. Numbers the file never mentions are rejected. No match means "Not in your file". |
+| What don't the checks guarantee? | That the reasoning is right. A real quote can still be misread. That's why we always show the quote, so the student can check. |
+| What does video miss? | It samples up to 16 frames, so very fast events between frames can be missed. Clips longer than a few minutes aren't the target. |
+| How much memory? | Measure on the Legion with `ollama ps` and quote it: *"__ GB GPU while answering"*. It's shown per step in the app. |
+| What if processing fails? | Retry, then the other video mode, then a clear message. Saved work is never lost: it's a file on disk. |
+| Is anything sent online? | No. After setup, everything works with Wi-Fi off. Gradio analytics are turned off too. |
+| Could we run it ourselves? | Yes: `install.ps1` (Windows) or `install.sh` (Mac/Linux) sets everything up, then `run.bat` (see the README). |
+| Did you train on the test data? | No. Fine-tuning used public datasets (SQuAD 2.0 etc.). The practice pack was only used to measure. |
+
+## Demo files
+`assets/demo/` holds our own files, made with `scripts/make_demo_assets.py`. Nothing comes from the practice pack.
+The voice note deliberately moves the deadline to Thursday, so the "check both" warning has something to show.
