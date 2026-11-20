@@ -352,6 +352,14 @@ w2 = wsp.Workspace.load("Lab 4")
 before = w2.next_step()["id"]
 w2.skip()
 check("skip moves on without marking done", w2.next_step()["id"] != before and not w2.step(before)["done"])
+w3 = wsp.Workspace.load("Lab 4"); first_id = w3.visible_steps()[0]["id"]
+ui.set_steps("Lab 4", [first_id])
+check("ticking a step marks it done", wsp.Workspace.load("Lab 4").step(first_id)["done"])
+ui.set_steps("Lab 4", [])
+w4 = wsp.Workspace.load("Lab 4")
+check("unticking undoes it and it becomes current again", not w4.step(first_id)["done"] and w4.next_step()["id"] == first_id)
+sl = ui.step_list("Lab 4")
+check("checklist lists the steps with done ones ticked", sl["visible"] and len(sl["choices"]) == len(w4.visible_steps()))
 check("easier highlights unclear phrases", "<mark" in ui.render_easier({**e, "original": ASSIGNMENT}, 0, *look))
 
 print(f"\n{passed} passed, {failed} failed")

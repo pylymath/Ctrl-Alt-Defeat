@@ -6,7 +6,7 @@
 Three tabs around one assignment:
     1 Understand   ask about any file; catch me up from a timestamp; make a passage easier
     2 Do           help me start (requirements with sources, connected across files), suggested steps,
-                   make this smaller, focus mode, a work timer, code checked against its examples
+                   break down steps, one step at a time, a work timer, code checked against its examples
     3 Resume       where was I? (read from the saved record, nothing guessed)"""
 import os
 
@@ -79,6 +79,9 @@ CSS = """
 .na-right > *, .na-right .gr-group > *, .na-right .gr-group > * > * { flex-shrink: 0 !important; }
 .na-right .gr-group { overflow: visible !important; }
 /* attached files as tags */
+/* clickable step checklist: ticked steps are crossed out */
+.na-steplist label { border-radius: 10px !important; padding: 8px 12px !important; width: 100%; }
+.na-steplist label:has(input:checked) span { text-decoration: line-through; opacity: .55; }
 .na-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 2px 8px; }
 .na-tagfile { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; padding: 4px 10px;
               border-radius: 999px; background: var(--na-sage-soft); color: var(--na-ink); max-width: 100%; }
@@ -669,15 +672,21 @@ def render_plan(ws_name, focus, font, size, spacing, bg, bionic=False) -> str:
                 + T("Attach your assignment in the box on the left (and any recordings, slides or photos), then press "
                     "Help me start. You'll get one small step at a time.") + "</span></div>")
     vis = ws.visible_steps()
-    done = sum(s["done"] for s in vis)
+    tops = [s for s in ws.steps if not s.get("parent")]      # breaking a step down never adds to the count
+    done = sum(s["done"] for s in tops)
     nxt = ws.next_step()
     out = [f"<div class='na-out' style='{style}'><p class='na-goal'>{T(ws.goal)}</p>",
-           f"<div class='na-bar'><div style='width:{100 * done / max(len(vis), 1):.0f}%'></div></div>",
-           f"<div class='na-status'>{done} of {len(vis)} steps done</div>"]
+           f"<div class='na-bar'><div style='width:{100 * done / max(len(tops), 1):.0f}%'></div></div>",
+           f"<div class='na-status'>{done} of {len(tops)} steps done</div>"]
     if nxt:
         req = ws.requirements[nxt["requirement"]] if nxt.get("requirement") is not None and \
             nxt["requirement"] < len(ws.requirements) else None
-        out.append(f"<div class='na-card' style='background:{surface}'><div class='na-status'>Your step now</div>"
+        label = "Your step now"
+        if nxt.get("parent"):
+            parts = [k for k in ws.steps if k.get("parent") == nxt["parent"]]
+            parent = ws.step(nxt["parent"])
+            label = f"Part {parts.index(nxt) + 1} of {len(parts)} of: " + (parent["text"] if parent else "")
+        out.append(f"<div class='na-card' style='background:{surface}'><div class='na-status'>{T(label)}</div>"
                    f"<div class='na-focus'>{T(nxt['text'])}</div>")
         if req:
             out.append(f"<div class='na-status'>Because your file says "
@@ -696,12 +705,9 @@ def render_plan(ws_name, focus, font, size, spacing, bg, bionic=False) -> str:
                    f"{_esc(conflicts[0])}. {T('Your files disagree, so Percie shows both and does not pick one.')}</div>")
 
     if not focus:
-        steps = "".join(
-            f"<div class='na-step {'done' if s['done'] else ('now' if nxt and s['id'] == nxt['id'] else '')}'>"
-            f"<span class='na-dot'>{'✓' if s['done'] else ('→' if nxt and s['id'] == nxt['id'] else '○')}</span>"
-            f"<span>{T(s['text'])}</span></div>" for s in vis)
-        out.append(f"<details style='margin-top:18px'><summary>{T('All steps')} ({len(vis)})</summary>"
-                   f"<div class='na-suggest'>{T('Suggested by Percie, not stated in your files.')}</div>{steps}</details>")
+        # The steps themselves are a clickable checklist below this card (tick / untick).
+        out.append(f"<div class='na-suggest' style='margin-top:14px'>"
+                   f"{T('Your steps are listed below: click one to tick it off or untick it. Suggested by Percie, not stated in your files.')}</div>")
         if ws.requirements:
             groups = "".join(
                 f"<p style='margin:12px 0 4px'><b>{wsp.TYPE_LABEL[t]}</b></p><ul>"
@@ -998,6 +1004,40 @@ def auto_start(files, ws_name, session, progress=gr.Progress()):
     return do_start(files, session, progress)
 
 
+def step_list(ws_name):
+    """The steps as a checklist: ticked = done. Broken-down parts are indented under their step."""
+    ws = _load_ws(ws_name)
+    if not ws or not ws.steps:
+        return gr.update(choices=[], value=[], visible=False)
+    vis = ws.visible_steps()
+    choices = [(("    ↳ " if s.get("parent") else "") + s["text"], s["id"]) for s in vis]
+    return gr.update(choices=choices, value=[s["id"] for s in vis if s["done"]], visible=True)
+
+
+def set_steps(ws_name, ticked):
+    """Click a step to tick it off or untick it (undo). The first unticked step becomes the current one."""
+    ws = _load_ws(ws_name)
+    if not ws:
+        return ws_name
+    ticked = set(ticked or [])
+    reopened = False
+    for s in ws.visible_steps():
+        if s["done"] != (s["id"] in ticked):
+            s["done"] = s["id"] in ticked
+            reopened |= not s["done"]
+            ws.event(f"{'finished' if s['done'] else 'reopened'}: {s['text']}")
+    for top in [s for s in ws.steps if not s.get("parent")]:
+        kids = [k for k in ws.steps if k.get("parent") == top["id"]]
+        if kids:
+            top["done"] = all(k["done"] for k in kids)
+    cur = ws.step(ws.current)
+    if reopened or not cur or cur["done"]:      # undo: the earliest unticked step is the one to do now
+        nxt = next((s for s in ws.visible_steps() if not s["done"]), None)
+        ws.current = nxt["id"] if nxt else None
+    ws.save()
+    return ws_name
+
+
 def _with_ws(ws_name, fn):
     ws = _load_ws(ws_name)
     if not ws:
@@ -1080,7 +1120,7 @@ def build() -> gr.Blocks:
                         start_btn = gr.Button("Help me start", variant="primary", size="lg")
                         with gr.Row():
                             done_btn = gr.Button("Done", variant="primary")
-                            small_btn = gr.Button("Make it smaller", variant="secondary")
+                            small_btn = gr.Button("Break down steps", variant="secondary")
                             skip_btn = gr.Button("Skip for now", variant="secondary")
                         timer_btn = gr.Button("15-minute focus timer (start / stop)", size="sm", variant="secondary")
                         timer_box = gr.HTML()
@@ -1097,7 +1137,10 @@ def build() -> gr.Blocks:
                     captions = gr.File(label="Captions (.vtt)", interactive=False, visible=False)
                     with gr.Accordion("How I got this answer", open=False):
                         details = gr.HTML()
-                plan = gr.HTML(render_plan(None, False, *look_default), visible=False)
+                with gr.Column(visible=False) as pane_d:
+                    plan = gr.HTML(render_plan(None, False, *look_default))
+                    steps_cb = gr.CheckboxGroup([], value=[], label="Your steps (click to tick off or untick)",
+                                                elem_classes="na-steplist", visible=False)
                 resume = gr.HTML(visible=False)
 
         # --- wiring --------------------------------------------------------------------------------------
@@ -1105,7 +1148,7 @@ def build() -> gr.Blocks:
                    show_progress="hidden")
         redraw = dict(fn=render, inputs=[last, *look, bionic], outputs=result, show_progress="hidden")
         show_u = dict(fn=lambda: (gr.Tabs(selected="understand"), gr.update(visible=True), gr.update(visible=False),
-                                  gr.update(visible=False)), inputs=None, outputs=[tabs, pane_u, plan, resume])
+                                  gr.update(visible=False)), inputs=None, outputs=[tabs, pane_u, pane_d, resume])
         results = [result, speech, captions, details, last, session]
         common = [box, files, which, rate, *look, bionic, ws_name, session, read_aloud]
         box.submit(submit, [box, files, which, gr.State([]), rate, *look, bionic, ws_name, session, read_aloud],
@@ -1118,7 +1161,8 @@ def build() -> gr.Blocks:
         resume_in = [ws_name, *look, bionic]
 
         def refresh(chain):
-            return (chain.then(render_plan, plan_in, plan).then(render_resume, resume_in, resume)
+            return (chain.then(render_plan, plan_in, plan).then(step_list, ws_name, steps_cb)
+                    .then(render_resume, resume_in, resume)
                     .then(timer_html, ws_name, timer_box))
 
         refresh(start_btn.click(do_start, [files, session], [ws_name, ws_pick, session]))
@@ -1126,6 +1170,7 @@ def build() -> gr.Blocks:
         refresh(small_btn.click(do_smaller, ws_name, ws_name))
         refresh(skip_btn.click(do_skip, ws_name, ws_name))
         refresh(ws_pick.input(lambda n: n, ws_pick, ws_name))
+        refresh(steps_cb.input(set_steps, [ws_name, steps_cb], ws_name))
         timer_btn.click(do_timer, ws_name, timer_box)
         gr.Timer(1.0).tick(timer_html, ws_name, timer_box, show_progress="hidden")
         where_btn.click(render_resume, resume_in, resume)
@@ -1133,12 +1178,12 @@ def build() -> gr.Blocks:
 
         # Tabs switch what the right pane shows
         tab_u.select(lambda: (gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)),
-                     None, [pane_u, plan, resume])
+                     None, [pane_u, pane_d, resume])
         refresh(tab_d.select(lambda: (gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)),
-                             None, [pane_u, plan, resume]).then(render_plan, plan_in, plan)
+                             None, [pane_u, pane_d, resume]).then(render_plan, plan_in, plan)
                 .then(auto_start, [files, ws_name, session], [ws_name, ws_pick, session]))
         tab_r.select(lambda: (gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)),
-                     None, [pane_u, plan, resume]).then(render_resume, resume_in, resume)
+                     None, [pane_u, pane_d, resume]).then(render_resume, resume_in, resume)
 
         # Every reading setting re-draws every view at once
         for ctl in (font, size, spacing, bg, bionic):

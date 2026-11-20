@@ -7,7 +7,7 @@ student is. Saved as JSON on this laptop (~/.neuroassist/workspaces/<name>.json)
     Connect my materials  each requirement -> passages in the other files that share its key words,
                           and "check both" hints when they state different deadlines/word counts.
                           Nothing is merged or overridden: all sources are shown.
-    Make this smaller     one step -> 2-5 smaller actions
+    Break down steps      one step -> 2-3 smaller parts (the step count stays the same)
     Where was I?          read back from the saved record. No model call, nothing guessed.
 
 What is stated by a file (requirements, quotes) and what is suggested by the assistant (steps) are
@@ -335,7 +335,7 @@ def help_me_start(name: str, files: list[str], goal_hint: str = "", session=None
     return ws.save()
 
 
-# --- Make this smaller ----------------------------------------------------------------------------
+# --- Break down steps ------------------------------------------------------------------------------
 def make_smaller(ws: Workspace, sid: str | None = None) -> Workspace:
     s = ws.step(sid) or ws.next_step()
     if not s:

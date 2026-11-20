@@ -44,7 +44,7 @@ Attach: `assignment.txt`, `diagram.png`, `voice_note.wav`, `process.mp4`. **Help
 | **1:50** | *Ask about* `process.mp4` → `What happens first, and what happens next?` | "Video: what happened, in order." |
 | **2:15** | **Run the code** (it appears because the assignment contains code). Point at the output and the ✗ examples. Then **Fix the code** | "Code: the assignment came with starter code. Percie found it, actually ran it on this laptop, and checked the examples in its docstring: 0 of 2 pass, and here are the real values. Then it explains why, line by line. *Fix this code*: it writes a corrected version and re-runs the same examples. 2 of 2. That means it passes these examples, not that it's proven correct." |
 | **2:50** | Scroll to **What your files say** → the **Check both: Friday vs Thursday** box | "This is the core feature. The assignment says Friday. The TA's voice note says Thursday. Percie found both, shows exactly where each came from, and doesn't pick one for you." |
-| **3:25** | **Make it smaller** → **Done** | "Percie shows one step at a time. Too big to start? Make it smaller. Done moves to the next one." |
+| **3:25** | **Break down steps** → **Done** | "Percie shows one step at a time. Too big to start? Break it down: it becomes small parts of the same step, so the list doesn't grow. Done moves on." |
 | **3:55** | **Resume** → **Where was I?** | "Come back tomorrow: your last step, your next step, and the question you still need to ask. All read from what you saved. Nothing is guessed." |
 | **4:25** | Results slide | "All five input types, one laptop, no internet. We tested every model choice and kept only what measured better. Thank you." |
 
