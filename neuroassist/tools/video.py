@@ -16,9 +16,17 @@ FRAMES = {"type": "object", "required": ["frames"], "properties": {"frames": {"t
 HINTS = {
     "count_events": "Compare consecutive frames carefully and count each event once.",
     "count": "Things may appear one at a time; count every distinct one across all frames.",
-    "sequence": "Pay close attention to the first and the last frames.",
-    "motion": "Compare positions and sizes between the first and last frames.",
+    "sequence": "Look at EVERY frame from the first to the last. If colours or things appear one after another, "
+                "list them all in the order they appear, then say which was first and which was last.",
+    "motion": "Compare positions and sizes between the first and last frames, and name the direction in plain "
+              "words (left, right, up, down, toward, away, taller, shorter).",
 }
+
+# A full sentence naming the object and its colour is clearer for students than a bare "Up" or "6".
+# (The examples are deliberately unlike any practice-pack item, so no answer leaks into the prompt.)
+FULL_ANSWER = ("Answer in one full sentence that names the object and its colour, for example 'The purple "
+               "triangle slides to the left.' or 'An orange star appears first, then a pink one, and a grey one "
+               "appears last.' Write any number as digits (4, not four).")
 
 
 def _labels(frames) -> str:
@@ -27,8 +35,7 @@ def _labels(frames) -> str:
 
 def _direct(question, frames, duration, task) -> Answer:
     prompt = (f"These {len(frames)} images are frames from a {duration:.1f}-second video, in time order.\n"
-              f"{_labels(frames)}\n{HINTS.get(task, '')}\n\nQuestion: {question}\n"
-              "Answer in one short, direct sentence.")
+              f"{_labels(frames)}\n{HINTS.get(task, '')}\n\nQuestion: {question}\n{FULL_ANSWER}")
     r = llm.chat_json(config.VISION_MODEL, prompt, ANSWER, images=[f.jpeg for f in frames],
                       num_ctx=config.NUM_CTX_VIDEO, max_tokens=120)
     return Answer((r.get("answer") or "").strip() or UNSURE,
@@ -68,7 +75,7 @@ def _timeline(question, frames, duration, task, batch: int = 4) -> Answer:
     log = "\n".join(f"[{e['t']:.1f}s] {e['description']}" for e in events)
     r = llm.chat_json(config.TEXT_MODEL,
                       f"Timeline of a {duration:.1f}-second video, one line per sampled frame:\n{log}\n\n"
-                      f"{HINTS.get(task, '')}\nQuestion: {question}\nAnswer in one short, direct sentence.",
+                      f"{HINTS.get(task, '')}\nQuestion: {question}\n{FULL_ANSWER}",
                       ANSWER, num_ctx=config.NUM_CTX_DOC, max_tokens=120)
     return Answer((r.get("answer") or "").strip() or UNSURE,
                   evidence={"timeline": events, "mode": "timeline"})
