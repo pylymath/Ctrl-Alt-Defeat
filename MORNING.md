@@ -67,6 +67,10 @@ The browser opens at http://127.0.0.1:7860. Check:
 Quick test: drag `assets\demo\assignment.txt` onto the big box at the top (or click its paperclip), type
 `What must I submit?` and press Enter. The answer should mention lab4.py, and the file should stay attached.
 
+Voice test: under the box, **Or say it** → **Record** (allow the microphone when the browser asks) → say
+"What must I submit?" → **Stop**. Your words appear in the box within a few seconds; press Enter.
+(Tick **Read answers aloud** to hear the answer.)
+
 ## Step 5: run the eval in a SECOND PowerShell window (25–35 min)
 Open another PowerShell in the v2 folder (Step 2 again), then:
 ```

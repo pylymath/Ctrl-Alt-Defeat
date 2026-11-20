@@ -101,6 +101,7 @@ button[role="tab"][aria-selected="true"] { color: var(--na-ink) !important; font
 .na-composer textarea { font-size: 1.05rem !important; line-height: 1.5 !important; }
 .na-composer button[aria-label*="ubmit"], .na-composer .submit-button { border-radius: 999px !important; }
 .na-under { align-items: end !important; margin-top: 4px; }
+.na-mic { border-radius: 14px !important; }
 
 /* chips */
 .na-chips { gap: 8px !important; flex-wrap: wrap !important; }
@@ -489,9 +490,31 @@ def sync_files(box, current):
     return new, file_choices(new)
 
 
-def submit(box, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session):
+def voice_to_text(recording, box):
+    """Speak instead of typing: transcribe the mic recording with the local Whisper model and put the
+    words into the composer (added to anything already typed). The student checks it, then presses Ask."""
+    if not recording:
+        return gr.skip(), gr.skip()
+    from .tools import audio
+    try:
+        text = (audio.transcribe(recording).get("text") or "").strip()
+    except Exception as e:
+        gr.Warning(f"Couldn't turn that into text ({type(e).__name__}). Try again, or type it.")
+        return gr.skip(), None
+    if not text:
+        gr.Warning("I didn't catch any words. Try again a little closer to the microphone.")
+        return gr.skip(), None
+    cur = box or {}
+    typed = (cur.get("text") or "").strip()
+    return {"text": f"{typed} {text}".strip(), "files": cur.get("files", [])}, None
+
+
+def submit(box, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session, read_aloud=False):
     """Composer submit: answer, clear the typed text (keep the files), and show the Understand tab."""
     question = ((box or {}).get("text") or "").strip()
+    outputs = list(outputs or [])
+    if read_aloud and "Read aloud" not in outputs:
+        outputs.append("Read aloud")
     out = ask(question, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session)
     kept = {"text": "", "files": (box or {}).get("files", [])}
     return (*out, kept, gr.Tabs(selected="understand"))
@@ -890,8 +913,12 @@ def build() -> gr.Blocks:
                                                    "recording, photo, video or code")
             files = gr.State([])
             with gr.Row(equal_height=True, elem_classes="na-under"):
-                which = gr.Dropdown([NONE], value=NONE, label="Ask about", scale=1, min_width=220)
+                which = gr.Dropdown([NONE], value=NONE, label="Ask about", scale=1, min_width=200)
+                # Speak instead of typing: local Whisper writes it into the box; you check it, then Ask.
+                mic = gr.Audio(sources=["microphone"], type="filepath", label="Or say it", scale=1,
+                               min_width=200, editable=False, elem_classes="na-mic")
                 with gr.Column(scale=3):
+                    read_aloud = gr.Checkbox(value=False, label="Read answers aloud")
                     with gr.Row(elem_classes="na-chips"):
                         quick = [gr.Button(label, size="sm", variant="secondary") for label, _ in QUICK]
 
@@ -980,7 +1007,8 @@ def build() -> gr.Blocks:
         # After an answer arrives, draw it again with the reading settings as they are NOW (they may have
         # been changed while the model was still working).
         redraw = dict(fn=render, inputs=[last, *look, bionic], outputs=result, show_progress="hidden")
-        box.submit(submit, inputs, results).then(**redraw)
+        box.submit(submit, [*inputs, read_aloud], results).then(**redraw)
+        mic.stop_recording(voice_to_text, [mic, box], [box, mic])
         catch_btn.click(catch_me_up, [when, *inputs[1:]], results[:6]).then(**redraw)
         for btn, (_, text) in list(zip(quick, QUICK)) + list(zip(more_quick, MORE_QUICK)):
             btn.click(lambda v, t=text: {"text": t, "files": (v or {}).get("files", [])}, box, box)

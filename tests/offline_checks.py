@@ -334,6 +334,11 @@ check("bionic reading: word starts bolded and surface tagged", "na-out na-bio" i
 check("bionic reading off: plain text", "<b>" not in ui.render({"answer": "You must", "route": {}, "evidence": {}},
                                                                "Standard", 18, 1.7, "Auto", False))
 check("bionic applies before the first answer too", "<b>" in ui.render(None, "Standard", 18, 1.7, "Auto", True))
+audio.transcribe = lambda path: {"text": "What must I submit?", "segments": [], "has_speech": True}
+vb, vm = ui.voice_to_text("rec.wav", {"text": "Lab 4:", "files": ["a.txt"]})
+check("speech goes into the composer, keeping typed text and files",
+      vb == {"text": "Lab 4: What must I submit?", "files": ["a.txt"]} and vm is None)
+audio.transcribe = lambda path: TRANSCRIPT
 check("easier highlights unclear phrases", "<mark" in ui.render_easier({**e, "original": ASSIGNMENT}, 0, *look))
 
 print(f"\n{passed} passed, {failed} failed")
