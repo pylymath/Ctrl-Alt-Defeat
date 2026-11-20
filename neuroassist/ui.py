@@ -75,6 +75,15 @@ CSS = """
 .na-split { align-items: flex-start !important; gap: 32px !important; max-width: 1320px; margin: 0 auto !important; }
 .na-left { position: sticky !important; top: 10px; align-self: flex-start !important; }
 .na-right { height: calc(100vh - 28px); overflow-y: auto !important; padding: 6px 8px 24px 0; }
+/* children keep their natural height (no squeezing); the pane scrolls instead */
+.na-right > *, .na-right .gr-group > *, .na-right .gr-group > * > * { flex-shrink: 0 !important; }
+.na-right .gr-group { overflow: visible !important; }
+/* attached files as tags */
+.na-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 2px 8px; }
+.na-tagfile { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; padding: 4px 10px;
+              border-radius: 999px; background: var(--na-sage-soft); color: var(--na-ink); max-width: 100%; }
+.na-tagfile b { font-weight: 600; font-size: .68rem; letter-spacing: .04em; opacity: .7; }
+.na-tagfile span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .na-hint { font-size: .8rem; color: var(--na-muted); margin: 2px 4px 6px; }
 footer { display: none !important; }
 
@@ -486,34 +495,6 @@ def file_choices(files):
     return gr.update(choices=choices, value=names[0] if names else NONE)
 
 
-def sync_files(box, current):
-    """Keep the attached files (from the composer) in state; refresh 'Ask about' only when they change,
-    so typing never resets the user's choice."""
-    new = _paths((box or {}).get("files"))
-    if new == (current or []):
-        return gr.skip(), gr.skip()
-    return new, file_choices(new)
-
-
-def voice_to_text(recording, box):
-    """Speak instead of typing: transcribe the mic recording with the local Whisper model and put the
-    words into the composer (added to anything already typed). The student checks it, then presses Ask."""
-    if not recording:
-        return gr.skip(), gr.skip()
-    from .tools import audio
-    try:
-        text = (audio.transcribe(recording).get("text") or "").strip()
-    except Exception as e:
-        gr.Warning(f"Couldn't turn that into text ({type(e).__name__}). Try again, or type it.")
-        return gr.skip(), None
-    if not text:
-        gr.Warning("I didn't catch any words. Try again a little closer to the microphone.")
-        return gr.skip(), None
-    cur = box or {}
-    typed = (cur.get("text") or "").strip()
-    return {"text": f"{typed} {text}".strip(), "files": cur.get("files", [])}, None
-
-
 def submit(box, files, which, outputs, rate, font, size, spacing, bg, bionic, ws_name, session, read_aloud=False):
     """Composer submit: answer, clear the typed text (keep the files), and show the Understand tab."""
     question = ((box or {}).get("text") or "").strip()
@@ -917,7 +898,32 @@ def _file_kinds(paths):
     return has_av, has_code
 
 
-def sync_files(box, current):
+KIND_TAG = {"document": "DOC", "code": "CODE", "audio": "AUDIO", "video": "VIDEO", "image": "IMAGE"}
+
+
+def file_tags(paths) -> str:
+    """Attached files as calm tags: type + name. Remove a file with its x inside the box."""
+    if not paths:
+        return ""
+    from .ingest import sniff
+    tags = []
+    for p in paths:
+        try:
+            kind = KIND_TAG.get(sniff(p), "FILE")
+        except Exception:
+            kind = "FILE"
+        name = Path(p).name
+        tags.append(f"<span class='na-tagfile' title='{html.escape(name, quote=True)}'><b>{kind}</b>"
+                    f"<span>{html.escape(name)}</span></span>")
+    return "<div class='na-tags'>" + "".join(tags) + "</div>"
+
+
+def _plan_matches(ws_name, paths) -> bool:
+    ws = _load_ws(ws_name)
+    return bool(ws) and {s["name"] for s in ws.sources} == {Path(p).name for p in paths}
+
+
+def sync_files(box, current, ws_name=None):
     """Composer changed. A microphone recording (Gradio names it audio.wav) is a spoken question: it is
     transcribed locally into the text box and removed from the files. Other files are the student's
     materials: kept in state; 'Ask about' and the file-specific actions update only when they change."""
@@ -938,12 +944,15 @@ def sync_files(box, current):
         box_out = {"text": f"{(box.get('text') or '').strip()} {words}".strip(), "files": raw}
     paths = _paths(raw)
     if paths == (current or []):
-        return gr.skip(), gr.skip(), gr.skip(), gr.skip(), box_out
+        return gr.skip(), gr.skip(), gr.skip(), gr.skip(), box_out, gr.skip(), gr.skip()
+    # New materials: a plan made from other files is set aside (still saved, openable from the sidebar),
+    # so Do and Resume never show stale steps. Do makes a fresh plan when opened.
+    ws_out = gr.skip() if (not paths or _plan_matches(ws_name, paths)) else None
     has_av, has_code = _file_kinds(paths)
     names = [Path(p).name for p in paths]
     which = gr.update(choices=names + ([ALL] if len(names) > 1 else []) + [NONE],
                       value=names[0] if names else NONE, visible=len(names) > 1)
-    return (paths, which, gr.update(visible=has_av), gr.update(visible=has_code), box_out)
+    return (paths, which, gr.update(visible=has_av), gr.update(visible=has_code), box_out, file_tags(paths), ws_out)
 
 
 def act(label, box, files, which, rate, font, size, spacing, bg, bionic, ws_name, session, read_aloud):
@@ -979,6 +988,14 @@ def do_start(files, session, progress=gr.Progress()):
     except Exception as e:
         raise gr.Error(str(e))
     return name, _ws_names(name), session
+
+
+def auto_start(files, ws_name, session, progress=gr.Progress()):
+    """Opening Do with files attached and no plan for them: make the plan straight away."""
+    paths = _paths(files)
+    if not paths or _plan_matches(ws_name, paths):
+        return gr.skip(), gr.skip(), gr.skip()
+    return do_start(files, session, progress)
 
 
 def _with_ws(ws_name, fn):
@@ -1046,6 +1063,7 @@ def build() -> gr.Blocks:
                                            lines=2, max_lines=6, autofocus=True, submit_btn="Ask",
                                            elem_classes="na-composer",
                                            placeholder="Ask anything, or attach your files with the clip")
+                tags = gr.HTML()
                 gr.HTML("<div class='na-hint'>Enter sends · Shift+Enter for a new line · mic to speak</div>")
                 which = gr.Dropdown([NONE], value=NONE, label="Ask about", visible=False)
                 with gr.Tabs(selected="understand") as tabs:
@@ -1083,7 +1101,8 @@ def build() -> gr.Blocks:
                 resume = gr.HTML(visible=False)
 
         # --- wiring --------------------------------------------------------------------------------------
-        box.change(sync_files, [box, files], [files, which, rec_row, code_row, box], show_progress="hidden")
+        box.change(sync_files, [box, files, ws_name], [files, which, rec_row, code_row, box, tags, ws_name],
+                   show_progress="hidden")
         redraw = dict(fn=render, inputs=[last, *look, bionic], outputs=result, show_progress="hidden")
         show_u = dict(fn=lambda: (gr.Tabs(selected="understand"), gr.update(visible=True), gr.update(visible=False),
                                   gr.update(visible=False)), inputs=None, outputs=[tabs, pane_u, plan, resume])
@@ -1115,8 +1134,9 @@ def build() -> gr.Blocks:
         # Tabs switch what the right pane shows
         tab_u.select(lambda: (gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)),
                      None, [pane_u, plan, resume])
-        tab_d.select(lambda: (gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)),
-                     None, [pane_u, plan, resume]).then(render_plan, plan_in, plan)
+        refresh(tab_d.select(lambda: (gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)),
+                             None, [pane_u, plan, resume]).then(render_plan, plan_in, plan)
+                .then(auto_start, [files, ws_name, session], [ws_name, ws_pick, session]))
         tab_r.select(lambda: (gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)),
                      None, [pane_u, plan, resume]).then(render_resume, resume_in, resume)
 

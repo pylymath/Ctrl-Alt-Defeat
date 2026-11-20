@@ -334,16 +334,17 @@ check("bionic reading: word starts bolded and surface tagged", "na-out na-bio" i
 check("bionic reading off: plain text", "<b>" not in ui.render({"answer": "You must", "route": {}, "evidence": {}},
                                                                "Standard", 18, 1.7, "Auto", False))
 check("bionic applies before the first answer too", "<b>" in ui.render(None, "Standard", 18, 1.7, "Auto", True))
-audio.transcribe = lambda path: {"text": "What must I submit?", "segments": [], "has_speech": True}
-vb, vm = ui.voice_to_text("rec.wav", {"text": "Lab 4:", "files": ["a.txt"]})
-check("speech goes into the composer, keeping typed text and files",
-      vb == {"text": "Lab 4: What must I submit?", "files": ["a.txt"]} and vm is None)
 audio.transcribe = lambda path: {"text": "Catch me up", "segments": [], "has_speech": True}
 doc_path = str(DEMO / "assignment.txt")
 out = ui.sync_files({"text": "", "files": [doc_path, "C:/tmp/gradio/abc/audio.wav"]}, [])
 check("mic recording becomes text and is removed from the files",
       out[0] == [doc_path] and out[4] == {"text": "Catch me up", "files": [doc_path]})
 check("code actions appear only when a file has code", out[3]["visible"] is True and out[2]["visible"] is False)
+check("attached files shown as tags", "assignment.txt" in out[5] and "DOC" in out[5] and "audio.wav" not in out[5])
+out3 = ui.sync_files({"text": "", "files": [str(DEMO / "diagram.png")]}, [], "Lab 4")
+check("new materials set the old plan aside (no stale steps)", out3[6] is None)
+out4 = ui.sync_files({"text": "", "files": [str(DEMO / "assignment.txt"), str(DEMO / "voice_note.wav")]}, [], "Lab 4")
+check("same materials keep the plan", out4[6] is not None)
 out2 = ui.sync_files({"text": "x", "files": [str(DEMO / "voice_note.wav")]}, [])
 check("catch-up action appears for a recording", out2[2]["visible"] is True and out2[3]["visible"] is False)
 audio.transcribe = lambda path: TRANSCRIPT

@@ -53,6 +53,22 @@ def fake_answer(question, files=(), session=None, **kw):
 
 ui.answer = fake_answer
 
+from neuroassist import workspace as _wsp  # noqa: E402
+
+
+def _fake_start(name, files, goal_hint="", session=None, visual=True, progress=None):
+    """Preview only: reuse the saved sample plan for whatever files are attached."""
+    ws = _wsp.Workspace.load("Lab 4")
+    ws.name = name
+    ws.sources = [{"name": Path(f).name, "path": f, "kind": "document", "error": ""} for f in files]
+    for s in ws.steps:
+        s["done"] = False
+    ws.current = ws.visible_steps()[0]["id"] if ws.steps else None
+    return ws.save()
+
+
+_wsp.help_me_start = _fake_start
+
 from neuroassist import accessible  # noqa: E402
 accessible.easier = lambda text: {
     "gist": "Lab 4: write a moving-average program, plot it, and explain the window size.",
