@@ -56,6 +56,15 @@ Settings live in [`neuroassist/config.py`](neuroassist/config.py). Every value c
 an `NEUROASSIST_*` environment variable. Machines with under 12 GB RAM get the `lite` profile
 automatically (`qwen3-vl:2b`, Whisper `base`, fewer video frames).
 
+### Interface
+
+A calm, low-glare design: warm paper background with a soft gradient, one muted sage accent, a serif heading,
+system fonts (works offline), light and dark mode. Four everyday actions up front; everything else is one
+click away under **More**. Reading settings sit in a sidebar and restyle every view at once: font
+(including dyslexia-friendly), size, line spacing, background (**Auto** follows light/dark), **bionic reading**
+(bold word starts, shown at normal base weight so they stand out), and read-aloud speed.
+`python tests/ui_preview.py` opens it with canned answers (no models) to check the layout.
+
 ### Workspace: Understand · Do · Resume
 
 Built around one assignment and all of its materials. Saved as JSON in `~/.neuroassist/workspaces/`,

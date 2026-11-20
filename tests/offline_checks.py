@@ -289,6 +289,11 @@ for name, html_ in [("plan", ui.render_plan("Lab 4", False, *look, True)),
 plan_html = ui.render_plan("Lab 4", False, *look)
 check("plan shows conflict and links", "Check both" in plan_html and "Also in" in plan_html)
 check("plan labels steps as suggested", "Suggested by NeuroAssist" in plan_html)
+bio = ui.render({"answer": "You must submit lab4.py", "route": {}, "evidence": {}}, "Standard", 18, 1.7, "Auto", True)
+check("bionic reading: word starts bolded and surface tagged", "na-out na-bio" in bio and "<b>Yo</b>u" in bio)
+check("bionic reading off: plain text", "<b>" not in ui.render({"answer": "You must", "route": {}, "evidence": {}},
+                                                               "Standard", 18, 1.7, "Auto", False))
+check("bionic applies before the first answer too", "<b>" in ui.render(None, "Standard", 18, 1.7, "Auto", True))
 check("easier highlights unclear phrases", "<mark" in ui.render_easier({**e, "original": ASSIGNMENT}, 0, *look))
 
 print(f"\n{passed} passed, {failed} failed")

@@ -28,71 +28,170 @@ from .pipeline import Session, answer
 OUTPUTS = {"Summary card": "card", "Plain language": "plain", "Literal meanings": "literal",
            "Flashcards": "flashcards", "Captions (audio/video)": "captions", "Read aloud": "tts"}
 
+# Four everyday actions up front; the rest one click away under "More".
 QUICK = [
     ("Explain simply", "Summarize this simply."),
-    ("Plain language", "Rewrite this in plain language."),
-    ("What do they really mean?", "What does the teacher really mean? Explain anything vague literally."),
     ("Key points", "What are the key points?"),
     ("Quiz me", "Make flashcards to quiz me on this."),
+    ("What do they mean?", "What does the teacher really mean? Explain anything vague literally."),
+]
+MORE_QUICK = [
+    ("Plain language", "Rewrite this in plain language."),
     ("Audio description", "Give an audio description of this for someone who is blind."),
     ("What does it say?", "What does the text say?"),
     ("Transcribe", "Transcribe this word for word."),
 ]
 
+SANS = "'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif"
+SERIF = "'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif"
 FONTS = {
-    "Standard": "system-ui, -apple-system, 'Segoe UI', sans-serif",
+    "Standard": SANS,
     "Dyslexia-friendly": "'OpenDyslexic', 'Lexend', Verdana, Tahoma, sans-serif",
     "Large print": "Verdana, Tahoma, sans-serif",
+    "Serif": SERIF,
 }
-BACKGROUNDS = {  # (page, text, accent surface)
-    "White": ("#ffffff", "#1d1d1f", "#f2f4f7"),
-    "Cream": ("#fbf6e9", "#2b2620", "#f1e8d2"),
-    "Pale blue": ("#eef5fb", "#1b2733", "#dbe8f4"),
-    "Dark": ("#1e1f22", "#e8e6e3", "#2b2d31"),
+BACKGROUNDS = {  # reading surface: (page, text, inner surface). Low glare, never pure black on white.
+    "Auto": ("var(--na-page)", "var(--na-ink)", "var(--na-surface)"),      # follows light / dark mode
+    "Cream": ("#FBF8F1", "#2F2B26", "#F3EEE3"),
+    "White": ("#FFFFFF", "#2B2926", "#F5F3EE"),
+    "Pale blue": ("#F1F5F8", "#24303A", "#E4ECF2"),
+    "Sage": ("#F1F5F1", "#28302B", "#E3ECE5"),
+    "Dark": ("#22211F", "#ECE8E1", "#2D2B28"),
 }
 
+# Calm palette: warm paper, soft sage accent, clay for the few things that need attention.
+INK, MUTED, LINE = "#2F2B26", "#7A7369", "#E7E2D8"
+SAGE, SAGE_DEEP, SAGE_SOFT = "#5C7C6D", "#4E6B5E", "#E6EEE9"
+CLAY_SOFT, CLAY_INK = "#F6E6DC", "#8A4B2F"
+
 CSS = """
-.na-out { border-radius: 14px; padding: 22px 24px; max-width: 70ch; }
+:root { --na-page: #FBF8F1; --na-surface: #F3EEE3; --na-ink: #2F2B26; --na-muted: #7A7369; --na-line: #E7E2D8; --na-sage: #5C7C6D; --na-sage-soft: #E6EEE9;
+        --na-clay-soft: #F6E6DC; --na-clay-ink: #8A4B2F; --na-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino,
+        'Book Antiqua', Georgia, serif; }
+.dark { --na-page: #262523; --na-surface: #302E2B; --na-ink: #ECE8E1; --na-muted: #A39E95; --na-line: #3A3835; --na-sage: #8FB3A2; --na-sage-soft: #2C3631;
+        --na-clay-soft: #3B2C24; --na-clay-ink: #E7B79C; }
+.na-main { max-width: 1100px; width: 100%; margin: 0 auto; }
+footer { display: none !important; }
+
+/* header */
+.na-head { padding: 18px 4px 6px; }
+.na-head h1 { font-family: var(--na-serif); font-weight: 500; font-size: 2.1rem; letter-spacing: -.01em; margin: 0;
+              color: var(--na-ink); }
+.na-head p { margin: 4px 0 0; color: var(--na-muted); font-size: 1rem; }
+.na-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.na-pill { font-size: .78rem; padding: 3px 10px; border-radius: 999px; background: var(--na-sage-soft); color: var(--na-ink); }
+.na-pill.off { background: var(--na-clay-soft); color: var(--na-clay-ink); }
+
+/* tabs: quiet underline, no boxes */
+.tab-wrapper, .tab-container { border: none !important; }
+button[role="tab"] { font-size: 1rem !important; color: var(--na-muted) !important; border: none !important;
+                     background: transparent !important; padding: 10px 16px !important; }
+button[role="tab"][aria-selected="true"] { color: var(--na-ink) !important; font-weight: 600 !important;
+                     box-shadow: inset 0 -2px 0 var(--na-sage) !important; }
+
+/* chips */
+.na-chips { gap: 8px !important; flex-wrap: wrap !important; }
+.na-chips button { border-radius: 999px !important; font-weight: 500 !important; min-width: 0 !important;
+                   padding: 6px 14px !important; flex: 0 1 auto !important; white-space: nowrap !important; }
+
+/* reading surface */
+.na-out { border-radius: 18px; padding: 24px 28px; max-width: 72ch; border: 1px solid var(--na-line);
+          box-shadow: 0 1px 2px rgba(60,50,40,.04); }
 .na-out *, .na-out h3 { color: inherit; font-family: inherit; }
-.na-out code { background: #8882; }
-.na-answer { font-weight: 600; margin: 0 0 6px; }
-.na-badge { display: inline-block; font-size: .8em; padding: 2px 10px; border-radius: 999px; margin-bottom: 10px; }
-.na-ok { background: #d9f2e3; color: #14532d; } .na-warn { background: #fde7c7; color: #7a3e00; }
-.na-card { border-radius: 12px; padding: 14px 18px; margin-top: 18px; }
-.na-card h3 { margin: 0 0 6px; font-size: 1.05em; }
-.na-card ul { margin: 8px 0 0 1.1em; padding: 0; } .na-card li { margin-bottom: .45em; }
-.na-terms dt { font-weight: 700; } .na-terms dd { margin: 0 0 .5em 0; }
-.na-flash details { border-radius: 10px; padding: 10px 14px; margin: 8px 0; cursor: pointer; }
-.na-flash summary { font-weight: 600; } .na-flash details[open] summary { margin-bottom: 6px; }
-.na-code { white-space: pre-wrap; font-family: Consolas, monospace; font-size: .9em; padding: 12px;
-           border-radius: 10px; overflow-x: auto; }
+.na-out h3 { font-weight: 600; font-size: 1.02em; margin: 0 0 8px; }
+.na-out code { background: #8881; padding: 0 4px; border-radius: 4px; }
+.na-empty { color: var(--na-muted); }
+.na-answer { font-weight: 500; margin: 0 0 8px; }
+.na-badge { display: inline-block; font-size: .78em; padding: 3px 12px; border-radius: 999px; margin-bottom: 12px;
+            font-weight: 500; }
+.na-ok { background: #E3EEE7; color: #2F5A45; } .na-warn { background: #F6E6DC; color: #8A4B2F; }
+.na-card { border-radius: 14px; padding: 16px 20px; margin-top: 18px; }
+.na-card ul { margin: 8px 0 0 1.1em; padding: 0; } .na-card li { margin-bottom: .5em; }
+.na-terms dt { font-weight: 600; } .na-terms dd { margin: 0 0 .6em 0; }
+.na-flash details { border-radius: 12px; padding: 12px 16px; margin: 8px 0; cursor: pointer; }
+.na-flash summary { font-weight: 500; } .na-flash details[open] summary { margin-bottom: 6px; }
+.na-code { white-space: pre-wrap; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .88em; padding: 14px;
+           border-radius: 12px; overflow-x: auto; }
 .na-steps { width: 100%; border-collapse: collapse; font-size: .9em; }
-.na-steps td, .na-steps th { text-align: left; padding: 4px 8px; border-bottom: 1px solid #8883; }
-.na-quote { border-left: 4px solid #6a8dd8; padding: 4px 10px; margin: 6px 0; font-style: italic; }
-.na-status { font-size: .9em; opacity: .85; }
+.na-steps td, .na-steps th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--na-line); }
+.na-quote { border-left: 3px solid #A9C2B5; padding: 4px 12px; margin: 6px 0; color: inherit; opacity: .9; }
+.na-status { font-size: .88em; opacity: .75; }
 .na-plain { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
-.na-plain > div { flex: 1 1 260px; border-radius: 10px; padding: 10px 14px; }
-.na-orig { opacity: .7; font-size: .9em; }
-.na-tag { font-size: .75em; padding: 1px 8px; border-radius: 999px; background: #8883; margin-left: 6px; }
-.na-step { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid #8882; }
-.na-step.done { opacity: .55; text-decoration: line-through; }
-.na-step.now { font-weight: 700; }
-.na-focus { font-size: 1.5em; font-weight: 700; margin: 10px 0 6px; }
-.na-min { font-size: .8em; opacity: .8; white-space: nowrap; }
-.na-bar { height: 10px; border-radius: 999px; background: #8883; overflow: hidden; margin: 8px 0 14px; }
-.na-bar > div { height: 100%; background: #3a9d5d; }
-.na-req { margin: 0 0 14px; }
-.na-req summary { cursor: pointer; }
-.na-loc { font-size: .78em; padding: 1px 8px; border-radius: 6px; background: #6a8dd833; margin-left: 6px;
-          white-space: nowrap; font-style: normal; }
-.na-link { font-size: .88em; margin: 4px 0 0 1em; }
-.na-conflict { font-size: .88em; margin: 6px 0 0 1em; padding: 4px 10px; border-radius: 8px; background: #fde7c7;
-               color: #7a3e00; }
-.na-suggest { font-size: .8em; opacity: .75; margin: -4px 0 8px; }
-mark.na-hl { background: #ffe58a; color: #1d1d1f; border-radius: 3px; padding: 0 2px; }
-.na-timer { font-size: 2em; font-weight: 700; font-variant-numeric: tabular-nums; }
-.na-instr { font-size: 1.3em; font-weight: 600; margin: 8px 0; }
+.na-plain > div { flex: 1 1 260px; border-radius: 12px; padding: 12px 16px; }
+.na-orig { opacity: .72; font-size: .92em; }
+.na-tag { font-size: .72em; padding: 2px 9px; border-radius: 999px; background: #8881; margin-left: 6px;
+          font-weight: 500; white-space: nowrap; }
+.na-step { display: flex; gap: 12px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid #8881; }
+.na-step .na-dot { width: 1.2em; text-align: center; opacity: .8; }
+.na-step.done { opacity: .5; text-decoration: line-through; }
+.na-step.now { font-weight: 600; }
+.na-focus { font-family: var(--na-serif); font-size: 1.55em; font-weight: 500; line-height: 1.35; margin: 10px 0 8px; }
+.na-bar { height: 6px; border-radius: 999px; background: #8882; overflow: hidden; margin: 10px 0 6px; }
+.na-bar > div { height: 100%; background: linear-gradient(90deg, #8FB3A2, #5C7C6D); border-radius: 999px; }
+.na-goal { font-family: var(--na-serif); font-size: 1.3em; font-weight: 500; margin: 0 0 4px; }
+.na-req { margin: 0 0 16px; }
+.na-loc { font-size: .74em; padding: 2px 8px; border-radius: 6px; background: #5C7C6D1f; margin-left: 6px;
+          white-space: nowrap; font-weight: 500; }
+.na-link { font-size: .88em; margin: 6px 0 0 1em; opacity: .9; }
+.na-conflict { font-size: .9em; margin: 8px 0 0 1em; padding: 8px 12px; border-radius: 10px; background: #F6E6DC;
+               color: #7A4128; }
+.na-suggest { font-size: .82em; opacity: .7; margin: -2px 0 10px; }
+.na-section { font-size: .78em; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin: 24px 0 8px; }
+mark.na-hl { background: #F3E2B8; color: #2F2B26; border-radius: 4px; padding: 0 3px; }
+.na-timer { font-family: var(--na-serif); font-size: 2.2em; font-variant-numeric: tabular-nums; }
+.na-instr { font-family: var(--na-serif); font-size: 1.35em; line-height: 1.4; margin: 8px 0; }
+
+/* bionic reading: normal weight everywhere, so the bold word-starts actually stand out */
+.na-bio, .na-bio * { font-weight: 400 !important; }
+.na-bio b { font-weight: 700 !important; }
 """
+
+
+def theme():
+    """Calm, low-glare theme. System fonts only (works offline)."""
+    sage = gr.themes.Color(c50="#F1F6F3", c100="#E6EEE9", c200="#CFDDD5", c300="#AFC6BA", c400="#8FB3A2",
+                           c500="#5C7C6D", c600="#4E6B5E", c700="#41594E", c800="#34473E", c900="#28372F",
+                           c950="#1C2621")
+    t = gr.themes.Base(primary_hue=sage, secondary_hue=sage, neutral_hue=gr.themes.colors.stone,
+                       radius_size=gr.themes.sizes.radius_lg, spacing_size=gr.themes.sizes.spacing_lg,
+                       text_size=gr.themes.sizes.text_md, font=[SANS], font_mono=["Consolas", "monospace"])
+    return t.set(
+        body_background_fill=("radial-gradient(1100px 520px at 0% 0%, #FDFBF6 0%, rgba(253,251,246,0) 60%), "
+                              "radial-gradient(900px 600px at 100% 100%, #EAF0EB 0%, rgba(234,240,235,0) 60%), "
+                              "#F6F4EE"),
+        body_background_fill_dark=("radial-gradient(1100px 520px at 0% 0%, #2A2926 0%, rgba(42,41,38,0) 60%), "
+                                   "radial-gradient(900px 600px at 100% 100%, #222A26 0%, rgba(34,42,38,0) 60%), "
+                                   "#1C1B19"),
+        body_text_color=INK, body_text_color_dark="#ECE8E1",
+        body_text_color_subdued=MUTED, body_text_color_subdued_dark="#A39E95",
+        block_background_fill="rgba(255,255,255,0.66)", block_background_fill_dark="rgba(45,43,40,0.66)",
+        block_border_color=LINE, block_border_color_dark="#3A3835", block_border_width="1px",
+        block_shadow="0 1px 2px rgba(60,50,40,0.04)", block_shadow_dark="none",
+        block_label_background_fill="transparent", block_label_background_fill_dark="transparent",
+        block_label_text_color=MUTED, block_label_text_color_dark="#A39E95", block_label_border_width="0px",
+        block_title_text_color=MUTED, block_title_text_weight="500",
+        panel_background_fill="transparent", panel_background_fill_dark="transparent",
+        panel_border_width="0px",
+        border_color_primary=LINE, border_color_primary_dark="#3A3835",
+        input_background_fill="#FFFFFF", input_background_fill_dark="#262522",
+        input_border_color=LINE, input_border_color_dark="#3A3835",
+        input_border_color_focus="#9DB5A8", input_border_color_focus_dark="#6F8F80",
+        input_shadow_focus="0 0 0 3px rgba(92,124,109,0.14)",
+        button_primary_background_fill=SAGE, button_primary_background_fill_hover=SAGE_DEEP,
+        button_primary_background_fill_dark="#8FB3A2", button_primary_background_fill_hover_dark="#A5C3B4",
+        button_primary_text_color="#FFFFFF", button_primary_text_color_dark="#1C1B19",
+        button_primary_border_color="transparent", button_primary_border_color_dark="transparent",
+        button_secondary_background_fill="#F1EEE7", button_secondary_background_fill_hover="#E8E3D9",
+        button_secondary_background_fill_dark="#2D2B28", button_secondary_background_fill_hover_dark="#36332F",
+        button_secondary_text_color="#3D3832", button_secondary_text_color_dark="#E3DED6",
+        button_secondary_border_color="#E2DDD2", button_secondary_border_color_dark="#3A3835",
+        button_large_text_weight="500",
+        color_accent=SAGE, color_accent_soft=SAGE_SOFT, color_accent_soft_dark="#2C3631",
+        checkbox_background_color_selected=SAGE, checkbox_background_color_selected_dark="#8FB3A2",
+        checkbox_border_color_selected=SAGE, slider_color=SAGE, slider_color_dark="#8FB3A2",
+        loader_color=SAGE, shadow_drop="none", shadow_drop_lg="0 10px 30px rgba(60,50,40,0.07)",
+    )
+
 
 _status_cache: dict = {}
 
@@ -100,18 +199,17 @@ _status_cache: dict = {}
 def status_html() -> str:
     have = llm.installed_models()
     if not have:
-        return ("<div class='na-status'>⚠️ Ollama is not running. Start the Ollama app, then reload this page."
-                "</div>")
-    need = dict.fromkeys([config.VISION_MODEL, config.TEXT_MODEL, config.QA_MODEL, config.CODE_MODEL, config.CARD_MODEL])
+        return ("<div class='na-pills'><span class='na-pill off'>Ollama isn't running. Open the Ollama app, then "
+                "reload this page.</span></div>")
+    need = dict.fromkeys([config.VISION_MODEL, config.QA_MODEL, config.CODE_MODEL])
 
     def present(m):
-        return m in have or f"{m}:latest" in have
-    parts = [f"{'✅' if present(m) else '❌'} {html.escape(m)}" for m in need]
-    missing = [m for m in need if not present(m)]
-    tip = f" &nbsp;Missing: run <code>ollama pull {html.escape(missing[0])}</code>" if missing else ""
-    return (f"<div class='na-status'>Profile <b>{config.PROFILE}</b> · speech: whisper "
-            f"{html.escape(str(config.WHISPER_MODEL))} · {' · '.join(parts)}{tip} · everything runs on this laptop"
-            "</div>")
+        return m in have or f"{m}:latest" in have or m.removesuffix(":latest") in have
+    pills = [f"<span class='na-pill{'' if present(m) else ' off'}'>{'' if present(m) else 'missing: '}"
+             f"{html.escape(m.removesuffix(':latest'))}</span>" for m in need]
+    pills.append(f"<span class='na-pill'>whisper-{html.escape(str(config.WHISPER_MODEL))}</span>")
+    pills.append("<span class='na-pill'>offline · on this laptop</span>")
+    return "<div class='na-pills'>" + "".join(pills) + "</div>"
 
 
 def _esc(s) -> str:
@@ -130,8 +228,24 @@ def _bionic(s) -> str:
     return "".join(out)
 
 
+def _bionic_view(fn):
+    """Renderers whose last argument is `bionic`: tag the reading surface so CSS drops the base weight to
+    normal and only the bolded word-starts stand out (bold-on-semibold was invisible)."""
+    import functools
+    import inspect
+    sig = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def wrap(*args, **kwargs):
+        out = fn(*args, **kwargs)
+        if sig.bind(*args, **kwargs).arguments.get("bionic"):
+            out = out.replace("class='na-out'", "class='na-out na-bio'")
+        return out
+    return wrap
+
+
 def _style(font: str, size: int, spacing: float, bg: str) -> tuple[str, str]:
-    page, ink, surface = BACKGROUNDS.get(bg, BACKGROUNDS["White"])
+    page, ink, surface = BACKGROUNDS.get(bg, BACKGROUNDS["Auto"])
     style = (f"background:{page};color:{ink};font-family:{FONTS.get(font, FONTS['Standard'])};"
              f"font-size:{size}px;line-height:{spacing};")
     if font == "Dyslexia-friendly":
@@ -139,12 +253,15 @@ def _style(font: str, size: int, spacing: float, bg: str) -> tuple[str, str]:
     return style, surface
 
 
+@_bionic_view
 def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bionic: bool = False) -> str:
     T = _bionic if bionic else _esc
     style, surface = _style(font, size, spacing, bg)
     if not res:
-        return (f"<div class='na-out' style='{style}'>Add a file (or don't), ask a question, and press "
-                "<b>Ask</b>. Answers show up here.</div>")
+        # Run through T too, so every reading setting (bionic included) visibly applies before the first answer.
+        return (f"<div class='na-out' style='{style}'><span class='na-empty'>"
+                + T("Add a file, or don't. Ask a question, and your answer appears here, with the sentence it "
+                    "came from.") + "</span></div>")
     if res.get("error"):
         return f"<div class='na-out' style='{style}'><p class='na-answer'>Something went wrong</p>{_esc(res['error'])}</div>"
 
@@ -166,14 +283,14 @@ def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bion
 
     cu = (res.get("evidence") or {}).get("catchup")
     if cu and cu.get("instructions"):
-        out.append(f"<div class='na-card' style='background:{surface}'><h3>📣 Instructions said in this part "
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>Instructions said in this part "
                    "<span style='font-weight:400;font-size:.8em'>(word for word)</span></h3><ul>"
                    + "".join(f"<li><span class='na-loc'>{_esc(i['loc'])}</span> {T(i['text'])}</li>"
                              for i in cu["instructions"]) + "</ul></div>")
 
     card = res.get("card")
     if card:
-        out.append(f"<div class='na-card' style='background:{surface}'><h3>📌 {T(card['title'])}</h3>"
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>{T(card['title'])}</h3>"
                    f"<div>{T(card['one_line'])}</div>")
         if card.get("bullets"):
             out.append("<ul>" + "".join(f"<li>{T(b)}</li>" for b in card["bullets"]) + "</ul>")
@@ -183,20 +300,20 @@ def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bion
         out.append("</div>")
 
     if res.get("plain"):
-        out.append("<h3 style='margin:18px 0 0'>✏️ Plain language</h3>")
+        out.append("<h3 style='margin:18px 0 0'>Plain language</h3>")
         for p in res["plain"]:
             tag = "" if p["checked"] else "<span class='na-tag'>kept original: rewrite changed a number</span>"
             out.append(f"<div class='na-plain'><div class='na-orig' style='background:{surface}'>{_esc(p['original'])}"
                        f"</div><div style='background:{surface}'>{T(p['plain'])}{tag}</div></div>")
     if res.get("literal"):
-        out.append(f"<div class='na-card' style='background:{surface}'><h3>🔎 What it really means</h3><dl class='na-terms'>"
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>What it really means</h3><dl class='na-terms'>"
                    + "".join(f"<dt>“{_esc(i['phrase'])}”<span class='na-tag'>{_esc(i.get('label', i['kind']))}</span></dt>"
                              f"<dd>{T(i['meaning'])}</dd>" for i in res["literal"]) + "</dl></div>")
     elif res.get("literal") == []:
         out.append("<p style='margin-top:14px'>Nothing vague or figurative found.</p>")
 
     if res.get("flashcards"):
-        out.append("<div class='na-flash' style='margin-top:18px'><h3 style='margin:0'>🃏 Flashcards "
+        out.append("<div class='na-flash' style='margin-top:18px'><h3 style='margin:0'>Flashcards "
                    "<span style='font-weight:400;font-size:.8em'>(tap to flip)</span></h3>")
         out += [f"<details style='background:{surface}'><summary>{T(c['q'])}</summary>{T(c['a'])}</details>"
                 for c in res["flashcards"]]
@@ -206,7 +323,7 @@ def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bion
 
     if res.get("captions"):
         cues = [c for c in res["captions"].split("\n\n")[1:] if c.strip()]
-        out.append(f"<div class='na-card' style='background:{surface}'><h3>💬 Captions</h3>" + "".join(
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>Captions</h3>" + "".join(
             f"<div><b>{_esc(c.split(chr(10))[0].split(' --> ')[0][3:8])}</b> {_esc(' '.join(c.split(chr(10))[1:]))}</div>"
             for c in cues[:60]) + "</div>")
     out.append("</div>")
@@ -225,7 +342,7 @@ def details_html(res: dict | None) -> str:
     out.append("</p><table class='na-steps'><tr><th>#</th><th>Step</th><th>Model</th><th>Time</th>"
                "<th>GPU memory</th></tr>")
     for i, s in enumerate(res.get("steps", []), 1):
-        mark = "" if s.get("ok") else " ❌"
+        mark = "" if s.get("ok") else " (failed)"
         extra = "".join(f"<div class='na-status'>↻ {_esc(e)}</div>" for e in s.get("events", []))
         if s.get("error"):
             extra += f"<div class='na-status'>{_esc(s['error'])}</div>"
@@ -366,6 +483,7 @@ def make_easier(passage, files, which, session):
     return res, 0, session
 
 
+@_bionic_view
 def render_easier(res, idx, font, size, spacing, bg, bionic=False) -> str:
     T = _bionic if bionic else _esc
     style, surface = _style(font, size, spacing, bg)
@@ -375,7 +493,7 @@ def render_easier(res, idx, font, size, spacing, bg, bionic=False) -> str:
     if res.get("note"):
         out.append(f"<p class='na-status'>{_esc(res['note'])}</p>")
     if res.get("gist"):
-        out.append(f"<p class='na-answer'>💡 {T(res['gist'])}</p>")
+        out.append(f"<p class='na-goal'>{T(res['gist'])}</p>")
     if res.get("details"):
         out.append("<details><summary>More detail</summary><ul>" + "".join(f"<li>{T(d)}</li>" for d in res["details"])
                    + "</ul></details>")
@@ -385,7 +503,7 @@ def render_easier(res, idx, font, size, spacing, bg, bionic=False) -> str:
         out.append(f"<div class='na-card' style='background:{surface}'><div class='na-status'>Instruction {i + 1} of "
                    f"{len(ins)} (word for word from the text)</div><div class='na-instr'>{T(ins[i])}</div></div>")
     if res.get("unclear"):
-        out.append(f"<div class='na-card' style='background:{surface}'><h3>🔎 Unclear phrases "
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>Unclear phrases "
                    "<span style='font-weight:400;font-size:.8em'>(highlighted below)</span></h3><dl class='na-terms'>"
                    + "".join(f"<dt>“{_esc(u['phrase'])}”<span class='na-tag'>{_esc(u['label'])}</span></dt>"
                              f"<dd>{T(u['meaning'])}</dd>" for u in res["unclear"]) + "</dl></div>")
@@ -393,7 +511,7 @@ def render_easier(res, idx, font, size, spacing, bg, bionic=False) -> str:
                f"<div class='na-card' style='background:{surface};margin-top:6px'>"
                f"{_highlight(res.get('original', ''), res.get('unclear') or [])}</div>")
     if res.get("plain"):
-        out.append("<h3 style='margin-top:18px'>✏️ Plain language, next to the original</h3>")
+        out.append("<h3 style='margin-top:18px'>Plain language, next to the original</h3>")
         for p in res["plain"]:
             tag = "" if p["checked"] else "<span class='na-tag'>kept original: the rewrite changed a number</span>"
             out.append(f"<div class='na-plain'><div class='na-orig' style='background:{surface}'>{_esc(p['original'])}"
@@ -411,16 +529,17 @@ def _req_html(r: dict, T, surface: str) -> str:
     out = [f"<li class='na-req'>{T(r['text'])}<span class='na-loc'>{_esc(r['source'])} · {_esc(r['loc'])}</span>"
            f"<div class='na-quote' style='font-size:.88em'>{_esc(r['quote'])}</div>"]
     for l in r.get("links") or []:
-        icon = "👁" if l.get("visual") else "🔗"
+        icon = "◉" if l.get("visual") else "↗"
         out.append(f"<div class='na-link'>{icon} Also in <b>{_esc(l['file'])}</b> <span class='na-loc'>{_esc(l['loc'])}"
                    f"</span>: “{_esc(l['text'][:180])}{'…' if len(l['text']) > 180 else ''}” "
                    f"<span class='na-status'>({_esc(l['why'])})</span></div>")
     for c in r.get("conflicts") or []:
-        out.append(f"<div class='na-conflict'>⚠️ Check both, they differ: {_esc(c)}. "
+        out.append(f"<div class='na-conflict'>Check both, they differ: {_esc(c)}. "
                    "NeuroAssist does not decide which one is right; ask your teacher.</div>")
     return "".join(out) + "</li>"
 
 
+@_bionic_view
 def render_plan(ws_name, focus, font, size, spacing, bg, bionic=False) -> str:
     T = _bionic if bionic else _esc
     style, surface = _style(font, size, spacing, bg)
@@ -433,7 +552,7 @@ def render_plan(ws_name, focus, font, size, spacing, bg, bionic=False) -> str:
     vis = ws.visible_steps()
     done = sum(s["done"] for s in vis)
     nxt = ws.next_step()
-    out = [f"<div class='na-out' style='{style}'><p class='na-answer'>🎯 {T(ws.goal)}</p>",
+    out = [f"<div class='na-out' style='{style}'><p class='na-goal'>{T(ws.goal)}</p>",
            f"<div class='na-bar'><div style='width:{100 * done / max(len(vis), 1):.0f}%'></div></div>",
            f"<div class='na-status'>{done} of {len(vis)} steps done</div>"]
     if focus:
@@ -448,20 +567,20 @@ def render_plan(ws_name, focus, font, size, spacing, bg, bionic=False) -> str:
                            f"<div class='na-quote'>{_esc(req['quote'])}</div>")
             out.append("</div>")
         else:
-            out.append("<p class='na-focus'>🎉 All steps done.</p>")
+            out.append("<p class='na-focus'>All steps done. Nice work.</p>")
         return "".join(out) + "</div>"
 
-    out.append("<h3>Suggested steps</h3><div class='na-suggest'>Suggested by NeuroAssist, not stated in your files. "
+    out.append("<div class='na-section'>Suggested steps</div><div class='na-suggest'>Suggested by NeuroAssist, not stated in your files. "
                "Add your own or make any of them smaller.</div>")
     if not vis:
         out.append("<p>No steps yet.</p>")
     for i, s in enumerate(vis, 1):
         cls = "done" if s["done"] else ("now" if nxt and s["id"] == nxt["id"] else "")
-        mark = "✅" if s["done"] else ("👉" if cls == "now" else "⬜")
+        mark = "✓" if s["done"] else ("→" if cls == "now" else "○")
         sub = "↳ " if s.get("parent") else ""
-        out.append(f"<div class='na-step {cls}'><span>{mark}</span><span>{i}. {sub}{T(s['text'])}</span></div>")
+        out.append(f"<div class='na-step {cls}'><span class='na-dot'>{mark}</span><span>{i}. {sub}{T(s['text'])}</span></div>")
 
-    out.append("<h3 style='margin-top:22px'>What your files say</h3>")
+    out.append("<div class='na-section'>What your files say</div>")
     if ws.requirements:
         for t in wsp.TYPES:
             group = [r for r in ws.requirements if r["type"] == t]
@@ -469,7 +588,7 @@ def render_plan(ws_name, focus, font, size, spacing, bg, bionic=False) -> str:
                 out.append(f"<p style='margin:14px 0 4px'><b>{wsp.TYPE_LABEL[t]}</b></p><ul>"
                            + "".join(_req_html(r, T, surface) for r in group) + "</ul>")
         if not any(r["type"] == "deadline" for r in ws.requirements):
-            out.append("<p class='na-status'>⏰ No deadline was found in your files. Ask your teacher.</p>")
+            out.append("<p class='na-status'>No deadline was found in your files. Ask your teacher.</p>")
     else:
         out.append("<p>No requirement could be matched to a sentence in your files, so none are shown.</p>")
     if ws.dropped:
@@ -486,7 +605,7 @@ def step_choices(ws_name):
     if not ws:
         return gr.update(choices=[], value=None)
     vis = ws.visible_steps()
-    choices = [(f"{i}. {'✅ ' if s['done'] else ''}{s['text'][:70]}", s["id"]) for i, s in enumerate(vis, 1)]
+    choices = [(f"{i}. {'✓ ' if s['done'] else ''}{s['text'][:70]}", s["id"]) for i, s in enumerate(vis, 1)]
     nxt = ws.next_step()
     return gr.update(choices=choices, value=nxt["id"] if nxt else None)
 
@@ -566,10 +685,10 @@ def timer_html(ws_name) -> str:
     ws = _load_ws(ws_name)
     left = ws.timer_left() if ws else None
     if left is None:
-        return "<div class='na-status'>No timer running. Pick a length and press Start; it is yours, not a deadline.</div>"
+        return "<div class='na-status'>No timer running. Pick a length and press Start. It's yours, not a deadline.</div>"
     if left == 0:
-        return "<div class='na-timer'>⏰ 00:00</div><div class='na-status'>Time's up. Take a short break, or press ✅ Done.</div>"
-    return f"<div class='na-timer'>⏱ {_mmss(left)}</div><div class='na-status'>of your {ws.timer_minutes}-minute timer</div>"
+        return "<div class='na-timer'>00:00</div><div class='na-status'>Time's up. Take a short break, or press Done.</div>"
+    return f"<div class='na-timer'>{_mmss(left)}</div><div class='na-status'>of your {ws.timer_minutes}-minute timer</div>"
 
 
 def write_code(prompt, font, size, spacing, bg):
@@ -584,6 +703,7 @@ def write_code(prompt, font, size, spacing, bg):
 
 
 # --- 3 · Resume -------------------------------------------------------------------------------------
+@_bionic_view
 def render_resume(ws_name, font, size, spacing, bg, bionic=False) -> str:
     T = _bionic if bionic else _esc
     style, surface = _style(font, size, spacing, bg)
@@ -593,30 +713,30 @@ def render_resume(ws_name, font, size, spacing, bg, bionic=False) -> str:
     w = wsp.where_was_i(ws)
     out = [f"<div class='na-out' style='{style}'><span class='na-badge na-ok'>Read from your saved progress, "
            "nothing guessed</span>",
-           f"<p class='na-answer'>You're working on: {T(w['goal'])}</p>",
+           f"<p class='na-status'>You're working on</p><p class='na-goal'>{T(w['goal'])}</p>",
            f"<div class='na-bar'><div style='width:{100 * w['done'] / max(w['total'], 1):.0f}%'></div></div>",
            f"<p>{w['done']} of {w['total']} steps done · last active {_esc(w['last_active'])}</p>"]
     if w["last_done"]:
-        out.append(f"<p>✅ Last thing you finished ({_esc(w['last_done_ago'])}): {T(w['last_done'])}</p>")
+        out.append(f"<p>Last thing you finished ({_esc(w['last_done_ago'])}): {T(w['last_done'])}</p>")
     if w["next"]:
         out.append(f"<div class='na-card' style='background:{surface}'><div class='na-status'>Your next step "
                    "(suggested):</div>"
-                   f"<div class='na-focus'>👉 {T(w['next']['text'])}</div>")
+                   f"<div class='na-focus'>{T(w['next']['text'])}</div>")
         if w["next_source"]:
             s = w["next_source"]
             out.append(f"<div class='na-status'>It's for <span class='na-loc'>{_esc(s['source'])} · {_esc(s['loc'])}"
                        f"</span></div><div class='na-quote'>{_esc(s['quote'])}</div>")
         out.append("</div>")
     else:
-        out.append("<p class='na-focus'>🎉 Every step is done.</p>")
+        out.append("<p class='na-focus'>Every step is done.</p>")
     if w["last_material"]:
-        out.append(f"<p>📄 Last file you looked at: <b>{_esc(w['last_material'])}</b></p>")
+        out.append(f"<p>Last file you looked at: <b>{_esc(w['last_material'])}</b></p>")
     if w["last_question"]:
         q = w["last_question"]
-        out.append(f"<p>💬 Last thing you asked: “{_esc(q['question'])}”<br>"
+        out.append(f"<p>Last thing you asked: “{_esc(q['question'])}”<br>"
                    f"<span class='na-status'>Answer: {_esc(q['answer'])}</span></p>")
     if w["deadlines"]:
-        out.append("<p><b>⏰ Deadlines in your files:</b></p><ul>" + "".join(
+        out.append("<div class='na-section'>Deadlines in your files</div><ul>" + "".join(
             f"<li>{T(d['text'])} <span class='na-loc'>{_esc(d['source'])} · {_esc(d['loc'])}</span></li>"
             for d in w["deadlines"]) + "</ul>")
     if w["unresolved"]:
@@ -630,114 +750,129 @@ def render_resume(ws_name, font, size, spacing, bg, bionic=False) -> str:
     return "".join(out) + "</div>"
 
 
-# --- Layout -----------------------------------------------------------------------------------------
+# --- Layout ---------------------------------------------------------------------------------------
 def build() -> gr.Blocks:
+    look_default = ("Standard", 18, 1.7, "Auto")
     with gr.Blocks(title="NeuroAssist") as demo:
         session = gr.State(None)
         last = gr.State(None)
         ws_name = gr.State(None)
         easy_res = gr.State(None)
         easy_idx = gr.State(0)
-        gr.Markdown("# 🧠 NeuroAssist\n**Understand** your course materials, get **help to start**, and find your "
-                    "way **back** when you lose your place. Everything runs on this laptop; answers come only from "
-                    "your files.")
-        gr.HTML(status_html)
-
         saved = wsp.list_workspaces()
-        with gr.Row(equal_height=False):
-            files = gr.File(label="Your materials (assignment, slides, lecture recording, board photo, video, code)",
-                            file_count="multiple", type="filepath", scale=3)
-            with gr.Column(scale=2, min_width=260):
-                ws_pick = gr.Dropdown(saved, label="Saved assignments", value=saved[0] if saved else None)
-                with gr.Accordion("Reading settings", open=False):
-                    font = gr.Radio(list(FONTS), value="Standard", label="Font")
-                    size = gr.Slider(14, 30, value=18, step=1, label="Text size")
-                    spacing = gr.Slider(1.3, 2.4, value=1.7, step=0.1, label="Line spacing")
-                    bg = gr.Radio(list(BACKGROUNDS), value="Cream", label="Background")
-                    bionic = gr.Checkbox(value=False, label="Bold the start of each word (display option)")
-                    rate = gr.Slider(-5, 5, value=0, step=1, label="Reading-aloud speed")
+
+        # --- Sidebar: everything about HOW things look and which assignment is open --------------------
+        with gr.Sidebar(open=True, width=300):
+            gr.HTML("<div class='na-section' style='margin-top:4px'>Assignment</div>")
+            ws_pick = gr.Dropdown(saved, label="Open a saved assignment", value=saved[0] if saved else None)
+            gr.HTML("<div class='na-section'>Reading</div>")
+            font = gr.Radio(list(FONTS), value="Standard", label="Font")
+            size = gr.Slider(14, 30, value=18, step=1, label="Text size")
+            spacing = gr.Slider(1.3, 2.4, value=1.7, step=0.1, label="Line spacing")
+            bg = gr.Radio(list(BACKGROUNDS), value="Auto", label="Background")
+            bionic = gr.Checkbox(value=False, label="Bionic reading (bold word starts)")
+            rate = gr.Slider(-5, 5, value=0, step=1, label="Read-aloud speed")
+            gr.HTML("<div class='na-section'>Running locally</div>")
+            gr.HTML(status_html)
         look = [font, size, spacing, bg]
 
-        with gr.Tabs():
-            with gr.Tab("1 · Understand"):
-                with gr.Row(equal_height=False):
-                    with gr.Column(scale=2, min_width=320):
-                        which = gr.Dropdown([NONE], value=NONE, label="Ask about")
-                        question = gr.Textbox(label="Your question", lines=3, autofocus=True,
-                                              placeholder="e.g. What must I submit?  ·  What does the diagram show?")
-                        with gr.Row():
-                            quick = [gr.Button(label, size="sm") for label, _ in QUICK]
-                        outputs = gr.CheckboxGroup(list(OUTPUTS), label="Also give me", value=[])
-                        ask_btn = gr.Button("Ask", variant="primary", size="lg")
-                        with gr.Accordion("🧵 I lost the thread: catch me up (recording or video)", open=False):
-                            when = gr.Textbox(label="From when?", placeholder="e.g. 12:40  ·  2:00 to 3:30  ·  "
-                                                                               "empty = the last 5 minutes")
-                            catch_btn = gr.Button("Catch me up")
-                    with gr.Column(scale=3, min_width=360):
-                        result = gr.HTML(render(None, "Standard", 18, 1.7, "Cream"))
-                        speech = gr.Audio(label="Read aloud", type="filepath", interactive=False, autoplay=True,
-                                          visible=False)
-                        captions = gr.File(label="Captions file (.vtt)", interactive=False, visible=False)
-                        with gr.Accordion("How I got this answer", open=False):
-                            details = gr.HTML()
-                with gr.Accordion("🪄 Make this easier: paste a passage (or leave empty to use the file above)",
-                                  open=False):
+        with gr.Column(elem_classes="na-main"):
+            # --- Header + materials ------------------------------------------------------------------------
+            gr.HTML("<div class='na-head'><h1>NeuroAssist</h1><p>Understand your materials, get started, "
+                    "and find your place again. Nothing leaves this laptop.</p></div>")
+            files = gr.File(label="Your materials: assignment, slides, recording, photo, video or code",
+                            file_count="multiple", type="filepath", height=120)
+
+            with gr.Tabs():
+                # ---- Understand ----
+                with gr.Tab("Understand"):
                     with gr.Row(equal_height=False):
                         with gr.Column(scale=2, min_width=320):
-                            passage = gr.Textbox(lines=8, label="Passage", placeholder="Paste instructions or a "
-                                                                                       "paragraph you find hard")
-                            easy_btn = gr.Button("Make this easier", variant="primary")
-                            with gr.Row():
-                                prev_btn = gr.Button("◀ Previous instruction", size="sm")
-                                next_btn = gr.Button("Next instruction ▶", size="sm")
+                            which = gr.Dropdown([NONE], value=NONE, label="Ask about")
+                            question = gr.Textbox(show_label=False, lines=3, autofocus=True,
+                                                  placeholder="Ask anything about your file, e.g. What must I submit?")
+                            with gr.Row(elem_classes="na-chips"):
+                                quick = [gr.Button(label, size="sm", variant="secondary") for label, _ in QUICK]
+                            ask_btn = gr.Button("Ask", variant="primary", size="lg")
+                            with gr.Accordion("I lost the thread (catch me up)", open=False):
+                                when = gr.Textbox(label="From when in the recording?",
+                                                  placeholder="12:40   ·   2:00 to 3:30   ·   empty = last 5 minutes")
+                                catch_btn = gr.Button("Catch me up", variant="secondary")
+                            with gr.Accordion("More", open=False):
+                                with gr.Row(elem_classes="na-chips"):
+                                    more_quick = [gr.Button(label, size="sm", variant="secondary")
+                                                  for label, _ in MORE_QUICK]
+                                outputs = gr.CheckboxGroup(list(OUTPUTS), label="Also give me", value=[])
                         with gr.Column(scale=3, min_width=360):
-                            easy_out = gr.HTML()
+                            result = gr.HTML(render(None, *look_default))
+                            speech = gr.Audio(label="Read aloud", type="filepath", interactive=False, autoplay=True,
+                                              visible=False)
+                            captions = gr.File(label="Captions (.vtt)", interactive=False, visible=False)
+                            with gr.Accordion("How I got this answer", open=False):
+                                details = gr.HTML()
+                    with gr.Accordion("Make this easier: paste a passage, or leave it empty to use the file above",
+                                      open=False):
+                        with gr.Row(equal_height=False):
+                            with gr.Column(scale=2, min_width=320):
+                                passage = gr.Textbox(lines=7, show_label=False,
+                                                     placeholder="Paste instructions or a paragraph you find hard")
+                                easy_btn = gr.Button("Make this easier", variant="primary")
+                                with gr.Row():
+                                    prev_btn = gr.Button("Previous instruction", size="sm", variant="secondary")
+                                    next_btn = gr.Button("Next instruction", size="sm", variant="secondary")
+                            with gr.Column(scale=3, min_width=360):
+                                easy_out = gr.HTML()
 
-            with gr.Tab("2 · Do"):
-                with gr.Row(equal_height=False):
-                    with gr.Column(scale=2, min_width=320):
-                        name_box = gr.Textbox(label="Assignment name", placeholder="e.g. Lab 4")
-                        goal = gr.Textbox(label="Anything to add? (optional)",
-                                          placeholder="e.g. I only have tonight")
-                        visual = gr.Checkbox(value=True, label="Also connect photos and videos (slower)")
-                        start_btn = gr.Button("🚀 Help me start", variant="primary", size="lg")
-                        step = gr.Radio([], label="Suggested steps (pick one)", value=None)
-                        with gr.Row():
-                            done_btn = gr.Button("✅ Done", variant="primary")
-                            small_btn = gr.Button("🔍 Make this smaller")
-                            undo_btn = gr.Button("↩ Not done", size="sm")
-                        focus = gr.Checkbox(value=False, label="Focus mode: show only the current step")
-                        with gr.Row():
-                            own = gr.Textbox(label="Add your own step", scale=3)
-                            own_btn = gr.Button("Add", scale=1)
-                        with gr.Accordion("⏱ Work timer (yours, not a deadline)", open=False):
-                            minutes = gr.Radio([5, 10, 15, 25], value=15, label="Minutes")
+                # ---- Do ----
+                with gr.Tab("Do"):
+                    with gr.Row(equal_height=False):
+                        with gr.Column(scale=2, min_width=320):
+                            name_box = gr.Textbox(label="Assignment name", placeholder="e.g. Lab 4")
+                            goal = gr.Textbox(label="Anything to add? (optional)", placeholder="e.g. I only have tonight")
+                            visual = gr.Checkbox(value=True, label="Also connect photos and videos (slower)")
+                            start_btn = gr.Button("Help me start", variant="primary", size="lg")
+                            step = gr.Radio([], label="Your steps", value=None)
                             with gr.Row():
-                                t_start = gr.Button("Start")
-                                t_stop = gr.Button("Stop", size="sm")
-                            timer_box = gr.HTML()
-                        with gr.Accordion("💻 Write code for a step (checked against your examples)", open=False):
-                            code_prompt = gr.Textbox(lines=8, label="Function to write",
-                                                     placeholder='def moving_average(values, window):\n    """...\n'
-                                                                 '    >>> moving_average([1, 2, 3, 4], 2)\n'
-                                                                 '    [1.5, 2.5, 3.5]\n    """')
-                            code_btn = gr.Button("Write it")
-                    with gr.Column(scale=3, min_width=360):
-                        plan = gr.HTML(render_plan(None, False, "Standard", 18, 1.7, "Cream"))
-                        code_out = gr.HTML()
+                                done_btn = gr.Button("Done", variant="primary")
+                                small_btn = gr.Button("Make this smaller", variant="secondary")
+                            focus = gr.Checkbox(value=False, label="Focus mode: show only this step")
+                            with gr.Accordion("More", open=False):
+                                undo_btn = gr.Button("Mark as not done", size="sm", variant="secondary")
+                                with gr.Row():
+                                    own = gr.Textbox(show_label=False, placeholder="Add your own step", scale=3)
+                                    own_btn = gr.Button("Add", scale=1, variant="secondary")
+                            with gr.Accordion("Timer (yours, not a deadline)", open=False):
+                                minutes = gr.Radio([5, 10, 15, 25], value=15, label="Minutes")
+                                with gr.Row():
+                                    t_start = gr.Button("Start", variant="secondary")
+                                    t_stop = gr.Button("Stop", size="sm", variant="secondary")
+                                timer_box = gr.HTML()
+                            with gr.Accordion("Write code for a step", open=False):
+                                code_prompt = gr.Textbox(lines=8, show_label=False,
+                                                         placeholder='def moving_average(values, window):\n    """...\n'
+                                                                     '    >>> moving_average([1, 2, 3, 4], 2)\n'
+                                                                     '    [1.5, 2.5, 3.5]\n    """')
+                                code_btn = gr.Button("Write it and check the examples", variant="secondary")
+                        with gr.Column(scale=3, min_width=360):
+                            plan = gr.HTML(render_plan(None, False, *look_default))
+                            code_out = gr.HTML()
 
-            with gr.Tab("3 · Resume"):
-                where_btn = gr.Button("🧭 Where was I?", variant="primary", size="lg")
-                resume = gr.HTML()
+                # ---- Resume ----
+                with gr.Tab("Resume"):
+                    with gr.Row():
+                        with gr.Column(scale=1, min_width=240):
+                            where_btn = gr.Button("Where was I?", variant="primary", size="lg")
+                        with gr.Column(scale=3):
+                            resume = gr.HTML()
 
-        # --- wiring ---
+        # --- wiring --------------------------------------------------------------------------------------
         files.change(file_choices, files, which)
         inputs = [question, files, which, outputs, rate, *look, bionic, ws_name, session]
         results = [result, speech, captions, details, last, session]
         ask_btn.click(ask, inputs, results)
         question.submit(ask, inputs, results)
         catch_btn.click(catch_me_up, [when, *inputs[1:]], results)
-        for btn, (_, text) in zip(quick, QUICK):
+        for btn, (_, text) in list(zip(quick, QUICK)) + list(zip(more_quick, MORE_QUICK)):
             btn.click(lambda t=text: t, None, question)
 
         easy_in = [easy_res, easy_idx, *look, bionic]
@@ -749,10 +884,11 @@ def build() -> gr.Blocks:
             .then(render_easier, easy_in, easy_out)
 
         plan_in = [ws_name, focus, *look, bionic]
+        resume_in = [ws_name, *look, bionic]
 
         def refresh(chain):
             return (chain.then(render_plan, plan_in, plan).then(step_choices, ws_name, step)
-                    .then(render_resume, [ws_name, *look, bionic], resume).then(timer_html, ws_name, timer_box))
+                    .then(render_resume, resume_in, resume).then(timer_html, ws_name, timer_box))
 
         refresh(start_btn.click(start, [name_box, goal, files, visual, session], [ws_name, ws_pick, session]))
         refresh(ws_pick.input(lambda n: n, ws_pick, ws_name))
@@ -766,13 +902,15 @@ def build() -> gr.Blocks:
         t_stop.click(timer_stop, ws_name, timer_box)
         gr.Timer(1.0).tick(timer_html, ws_name, timer_box, show_progress="hidden")
         code_btn.click(write_code, [code_prompt, *look], code_out)
-        where_btn.click(render_resume, [ws_name, *look, bionic], resume)
+        where_btn.click(render_resume, resume_in, resume)
         refresh(demo.load(lambda n: n, ws_pick, ws_name))
 
-        for ctl in (font, size, spacing, bg, bionic):      # restyle without asking again
-            ctl.change(render, [last, *look, bionic], result)
-            ctl.change(render_plan, plan_in, plan)
-            ctl.change(render_easier, easy_in, easy_out)
+        # Every reading setting re-draws every view at once (answer, easier, plan, resume)
+        for ctl in (font, size, spacing, bg, bionic):
+            ctl.change(render, [last, *look, bionic], result, show_progress="hidden")
+            ctl.change(render_easier, easy_in, easy_out, show_progress="hidden")
+            ctl.change(render_plan, plan_in, plan, show_progress="hidden")
+            ctl.change(render_resume, resume_in, resume, show_progress="hidden")
     return demo
 
 
@@ -787,9 +925,7 @@ def main():
     import sys
     lan = "--lan" in sys.argv
     threading.Thread(target=_warm, daemon=True).start()
-    build().launch(server_name="0.0.0.0" if lan else "127.0.0.1", inbrowser=True, css=CSS,
-                   theme=gr.themes.Soft(font=["system-ui", "Segoe UI", "sans-serif"],
-                                        font_mono=["Consolas", "monospace"]))
+    build().launch(server_name="0.0.0.0" if lan else "127.0.0.1", inbrowser=True, css=CSS, theme=theme())
 
 
 if __name__ == "__main__":

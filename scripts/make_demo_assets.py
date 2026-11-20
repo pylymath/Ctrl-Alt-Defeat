@@ -94,6 +94,7 @@ def video(fps=10):
 
 
 def _tts_wav(text: str, path: Path):
+    text = text.replace("'", "''")          # PowerShell single-quoted string: ' is written as ''
     if sys.platform != "win32":
         raise SystemExit("voice note needs Windows speech (or record one yourself as assets/demo/voice_note.wav)")
     ps = ("Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
@@ -129,9 +130,34 @@ def voice_note(sr=16000):
         f.writeframes(pcm.tobytes())
 
 
+LECTURE = (
+    "Okay, let's get started. Today is about smoothing noisy data, which you need for lab four. "
+    "Sensors are noisy. If you plot raw temperature readings, the line jumps around even when the real "
+    "temperature barely changes. A moving average fixes that. You take a window of readings, say three, "
+    "average them, then slide the window one step to the right and do it again. "
+    "So the window size is the key choice. A small window follows the data closely but stays noisy. "
+    "A large window is very smooth, but it reacts late to real changes. That trade-off is exactly what "
+    "your reflection should explain. "
+    "Two practical things. First, clean the data before you smooth it. Missing values will break the "
+    "average, so drop those rows first. Second, when the window is bigger than the list, return an empty "
+    "list instead of crashing. Write a test for that case. "
+    "One more thing. For the plot, put the raw readings and the smoothed line on the same chart, with a "
+    "legend, so I can compare them. "
+    "Next week we will look at weighted moving averages, where recent readings count more. That is the "
+    "bonus part of the lab, and it is optional. "
+    "That's it for today. Office hours are on Wednesday afternoon if you get stuck."
+)
+
+
+def lecture(sr=16000):
+    """About 90 seconds of 'lecture' with instructions spread through it, for 'catch me up from 0:45'."""
+    _tts_wav(LECTURE, OUT / "lecture.wav")
+
+
 if __name__ == "__main__":
     diagram()
     video()
     voice_note()
+    lecture()
     for p in sorted(OUT.iterdir()):
         print(f"{p.name:<16} {p.stat().st_size / 1024:8.1f} KB")

@@ -224,6 +224,7 @@ def main(argv=None):
     ap.add_argument("--finetunes", type=Path, help="folder with our fine-tuned models (e.g. from Drive or USB)")
     ap.add_argument("--hf-repo", help="Hugging Face repo with the fine-tuned models")
     ap.add_argument("--profile", choices=["lite", "standard"], help="force a profile instead of detecting")
+    ap.add_argument("--data", help="practice-pack folder for the eval (saved in neuroassist.env)")
     ap.add_argument("--skip-test", action="store_true", help="skip the live test question")
     ap.add_argument("--check", action="store_true", help="only report status")
     a = ap.parse_args(argv)
@@ -241,6 +242,8 @@ def main(argv=None):
         import importlib
         importlib.reload(config)
     settings = {"NEUROASSIST_PROFILE": profile}
+    if a.data:
+        settings["NEUROASSIST_DATA"] = a.data
     try:
         pull(config.PROFILES[profile]["vision"])
         pull(config.CODE_MODEL)
@@ -250,7 +253,10 @@ def main(argv=None):
 
     src = a.finetunes or (download_finetune(a.hf_repo) if a.hf_repo else None)
     qa = import_finetune(src) if src else None
-    if not src:
+    if not qa and FINETUNE in installed():          # imported earlier (e.g. by scripts/import_finetunes.ps1)
+        qa = f"{FINETUNE}:latest"
+        say(f"Using {qa}, already in Ollama", True)
+    if not qa and not src:
         say("No fine-tunes given: document QA uses the stock model (add --finetunes or --hf-repo)", None)
     settings["NEUROASSIST_QA_MODEL"] = qa or ""
     write_settings(settings)
