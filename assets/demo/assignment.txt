@@ -24,3 +24,25 @@ If you want to go the extra mile, add a second line to the plot using a weighted
 
 A few last notes
 Your code should be self-explanatory, so name things sensibly. Ask for help in a timely manner if you get stuck, and feel free to look at the examples from lecture where relevant.
+
+Starter code
+Here is a first attempt at moving_average from last year's lab. It runs, but it does not give the right answer. Find out why before you write your own version.
+
+```python
+def moving_average(values, window):
+    """Average of each full window of readings.
+    >>> moving_average([1, 2, 3, 4], 2)
+    [1.5, 2.5, 3.5]
+    >>> moving_average([1, 2], 5)
+    []
+    """
+    result = []
+    for i in range(len(values)):
+        chunk = values[i:i + window]
+        result.append(sum(chunk) / window)
+    return result
+
+
+readings = [21, 23, 22, 26, 24]
+print("Smoothed:", moving_average(readings, 3))
+```

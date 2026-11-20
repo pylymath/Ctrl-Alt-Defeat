@@ -13,6 +13,9 @@ from .schema import Route
 TASKS = [
     ("catchup",        r"catch (me )?up|(zoned|spaced|tuned) out|lost (the )?(thread|track|focus)|what did i miss|"
                        r"recap (from|of the last|the last|between)|(from|since|after) \d{1,2}:\d{2}|the last \d+ ?min"),
+    ("explain_code",   r"(explain|walk me through|run|test|fix|debug|correct) (this|the|that|my|their) (code|snippet|"
+                       r"function|starter code|program)|what does (this|the|that) (code|function|snippet) do|"
+                       r"show (me )?(the |its )?output|why does (this|the|my) (code|function)"),
     ("write_code",     r"\bdef \w+\(|complete (this|the) (python )?function|write (a |some )?(python )?(function|code|script)"),
     ("transcribe",     r"\btranscri|word for word|what (is|are) (he|she|they|the speaker) saying"),
     ("identify_sound", r"what (sound|noise)|what (do|can) (you|i) hear|which (sound|noise)"),
@@ -29,9 +32,9 @@ ALLOWED = {
     "image":    {"count", "read_text", "identify", "summarize"},
     "video":    {"catchup", "count_events", "count", "sequence", "motion", "read_text", "summarize"},
     "audio":    {"catchup", "transcribe", "identify_sound", "summarize"},
-    "document": {"summarize"},
-    "code":     {"write_code", "summarize"},
-    "chat":     {"write_code", "summarize"},
+    "document": {"explain_code", "summarize"},
+    "code":     {"explain_code", "write_code", "summarize"},
+    "chat":     {"explain_code", "write_code", "summarize"},
 }
 DEFAULT_TASK = {"image": "describe", "video": "describe", "audio": "qa",
                 "document": "qa", "code": "qa", "chat": "qa"}

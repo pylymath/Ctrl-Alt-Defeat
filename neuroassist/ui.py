@@ -36,6 +36,8 @@ QUICK = [
     ("What do they mean?", "What does the teacher really mean? Explain anything vague literally."),
 ]
 MORE_QUICK = [
+    ("Explain and run the code", "Explain this code and run it."),
+    ("Fix the code", "Fix this code."),
     ("Plain language", "Rewrite this in plain language."),
     ("Audio description", "Give an audio description of this for someone who is blind."),
     ("What does it say?", "What does the text say?"),
@@ -140,6 +142,13 @@ button[role="tab"][aria-selected="true"] { color: var(--na-ink) !important; font
 mark.na-hl { background: #F3E2B8; color: #2F2B26; border-radius: 4px; padding: 0 3px; }
 .na-timer { font-family: var(--na-serif); font-size: 2.2em; font-variant-numeric: tabular-nums; }
 .na-instr { font-family: var(--na-serif); font-size: 1.35em; line-height: 1.4; margin: 8px 0; }
+
+/* code with line numbers; the line an error came from is marked */
+.na-numbered { white-space: normal; padding: 10px 0; }
+.na-cl { white-space: pre; padding: 0 14px 0 0; }
+.na-cl span { display: inline-block; width: 2.6em; text-align: right; padding-right: 12px; opacity: .45;
+              user-select: none; }
+.na-cl.na-bad { background: #F6E6DC; color: #7A4128; }
 
 /* bionic reading: normal weight everywhere, so the bold word-starts actually stand out */
 .na-bio, .na-bio * { font-weight: 400 !important; }
@@ -253,6 +262,61 @@ def _style(font: str, size: int, spacing: float, bg: str) -> tuple[str, str]:
     return style, surface
 
 
+def _code_lines(code: str, surface: str, bad: int | None = None) -> str:
+    rows = "".join(f"<div class='na-cl{' na-bad' if i == bad else ''}'><span>{i}</span>{_esc(l) or ' '}</div>"
+                   for i, l in enumerate(code.splitlines(), 1))
+    return f"<div class='na-code na-numbered' style='background:{surface}'>{rows}</div>"
+
+
+def _run_block(r: dict, T, surface: str, label: str) -> str:
+    """What really happened when the code ran: output, error, and each docstring example."""
+    out = []
+    ex = r.get("examples") or []
+    n_ok = sum(e["ok"] for e in ex)
+    if r.get("error"):
+        out.append(f"<span class='na-badge na-warn'>{label}: error"
+                   f"{' on line ' + str(r['error_line']) if r.get('error_line') else ''}</span> ")
+    else:
+        out.append(f"<span class='na-badge na-ok'>{label}: finished in {r.get('ms', 0) / 1000:.2f} s</span> ")
+    if ex:
+        out.append(f"<span class='na-badge {'na-ok' if n_ok == len(ex) else 'na-warn'}'>"
+                   f"Examples: {n_ok} of {len(ex)} pass</span>")
+    out.append("<div class='na-section' style='margin-top:10px'>Output</div>"
+               f"<div class='na-code' style='background:{surface}'>{_esc(r.get('stdout') or '(nothing printed)')}"
+               + (f"\n{_esc(r['error'])}" if r.get("error") else "") + "</div>")
+    if ex:
+        out.append("<div class='na-section'>Examples from the docstring</div><table class='na-steps'>"
+                   "<tr><th></th><th>Call</th><th>Expected</th><th>Got</th></tr>" + "".join(
+                       f"<tr><td>{'✓' if e['ok'] else '✗'}</td><td><code>{_esc(e['expr'])}</code></td>"
+                       f"<td><code>{_esc(e['expected'])}</code></td><td><code>{_esc(e['actual'])}</code></td></tr>"
+                       for e in ex) + "</table>")
+    return "".join(out)
+
+
+def _code_report(ev: dict, T, surface: str) -> str:
+    r = ev.get("run") or {}
+    out = [f"<div class='na-status' style='margin-top:6px'>Code from {_esc(ev.get('where', 'your file'))}</div>"]
+    if ev.get("fixed") is not None:
+        fr = ev.get("fixed_run") or {}
+        out.append("<div class='na-section'>Before</div>" + _run_block(r, T, surface, "Original"))
+        out.append("<div class='na-section'>Corrected code</div>" + _code_lines(ev["fixed"], surface, fr.get("error_line")))
+        out.append(_run_block(fr, T, surface, "Corrected version"))
+        return "".join(out)
+    out.append(_code_lines(ev["code"], surface, r.get("error_line")))
+    out.append(_run_block(r, T, surface, "Ran it on this laptop"))
+    x = ev.get("explanation") or {}
+    if x.get("steps"):
+        out.append("<div class='na-section'>Step by step</div>" + "".join(
+            f"<div class='na-step'><span class='na-loc' style='margin:0'>line {_esc(s['lines'])}</span>"
+            f"<span>{T(s['what'])}</span></div>" for s in x["steps"]))
+    if x.get("issues"):
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>What the run shows is wrong</h3><ul>"
+                   + "".join(f"<li>{T(i)}</li>" for i in x["issues"]) + "</ul>"
+                   "<div class='na-status'>Ask <b>Fix this code</b> to get a corrected version, checked against the "
+                   "same examples.</div></div>")
+    return "".join(out)
+
+
 @_bionic_view
 def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bionic: bool = False) -> str:
     T = _bionic if bionic else _esc
@@ -280,6 +344,8 @@ def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bion
     else:
         lines = [ln for ln in str(res["answer"]).split("\n") if ln.strip()]
         out.append("".join(f"<p class='na-answer'>{T(ln)}</p>" for ln in lines))
+    if route.get("task") == "explain_code" and (res.get("evidence") or {}).get("code"):
+        out.append(_code_report(res["evidence"], T, surface))
 
     cu = (res.get("evidence") or {}).get("catchup")
     if cu and cu.get("instructions"):

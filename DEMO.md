@@ -39,25 +39,17 @@ Upload: `assignment.txt`, `diagram.png`, `voice_note.wav`, `process.mp4`. **Help
 | **1:05** | *Ask about* `diagram.png` → `What do the arrows connect?` | "Images: a diagram from the board, explained." |
 | **1:30** | *Ask about* `voice_note.wav` → `What sound is at the end?` | "Audio: it identifies sounds as well as speech. That's a bell." |
 | **1:50** | *Ask about* `process.mp4` → `What happens first, and what happens next?` | "Video: what happened, in order." |
-| **2:15** | **Do** → **Write code for a step** → paste the prompt below → **Write it and check the examples** | "Code: it writes the function and runs the examples in your prompt. 3 of 3 pass, which means it passes these examples, not that it's proven correct." |
+| **2:15** | *Ask about* `assignment.txt` → **More** → **Explain and run the code** → **Ask**. Point at the output and the ✗ examples. Then **Fix the code** → **Ask** | "Code: the assignment came with starter code. Percie found it, actually ran it on this laptop, and checked the examples in its docstring: 0 of 2 pass, and here are the real values. Then it explains why, line by line. *Fix this code*: it writes a corrected version and re-runs the same examples. 2 of 2. That means it passes these examples, not that it's proven correct." |
 | **2:50** | Scroll to **What your files say** → the **Check both: Friday vs Thursday** box | "This is the core feature. The assignment says Friday. The TA's voice note says Thursday. Percie found both, shows exactly where each came from, and doesn't pick one for you." |
 | **3:25** | **Make this smaller** on the first step → tick **Focus mode** → **Done** | "Too big to start? Make it smaller. Focus mode shows one step at a time." |
 | **3:55** | **Resume** → **Where was I?** | "Come back tomorrow: your last step, your next step, and the question you still need to ask. All read from what you saved. Nothing is guessed." |
 | **4:25** | Results slide | "All five input types, one laptop, no internet. We tested every model choice and kept only what measured better. Thank you." |
 
-**Code prompt (Round 1):**
-```python
-def moving_average(values, window):
-    """Return the moving averages of `values` over `window` items.
-    If the window is larger than the list, return an empty list.
-    >>> moving_average([1, 2, 3, 4], 2)
-    [1.5, 2.5, 3.5]
-    >>> moving_average([5, 5, 5], 3)
-    [5.0]
-    >>> moving_average([1, 2], 5)
-    []
-    """
-```
+**Round 1 code moment:** the assignment ends with buggy starter code. It runs, but it also averages the short
+windows at the end, so its output ends `16.67, 8.0` and both docstring examples fail. If you write your own assignment
+text, put a snippet like that in it, between ```` ```python ```` marks (or as a separate `.py` file), with 2–3 `>>>`
+examples in the docstring: those examples are what make "0 of 2 → 2 of 2" measurable. The Final uses a different
+code moment: writing a new function from a prompt.
 
 ---
 

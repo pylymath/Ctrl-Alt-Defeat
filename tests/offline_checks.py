@@ -247,6 +247,46 @@ a = pipeline.answer("Rewrite this in plain language", [str(DEMO / "assignment.tx
 check("plain-language request skips QA and returns the rewrite", a.route.task == "rewrite" and a.plain)
 llm.chat_json = _prev
 
+# --- 8b. Explain, run and fix code from a document --------------------------------------------------------
+print("explain / run / fix code")
+from neuroassist.tools import code_explain  # noqa: E402
+snips = code_explain.find_snippets(ASSIGNMENT)
+check("finds the starter code in the assignment", len(snips) == 1 and "def moving_average" in snips[0]["code"])
+r = code_explain.run(snips[0]["code"])
+check("really runs it and captures the output", r["ok"] and r["stdout"].startswith("Smoothed: [22.0"))
+check("docstring examples checked with the actual values",
+      [e["ok"] for e in r["examples"]] == [False, False] and r["examples"][0]["actual"] == "[1.5, 2.5, 3.5, 2.0]")
+crash = code_explain.run("x = [1, 2]\nprint('start')\nprint(x[5])\n")
+check("error and its line reported", not crash["ok"] and crash["error_line"] == 3 and "IndexError" in crash["error"]
+      and crash["stdout"].strip() == "start")
+check("endless loop stopped", "Still running" in code_explain.run("while True:\n    pass\n", timeout=2)["error"])
+check("indented code in plain text is found", code_explain.find_snippets(
+    "Try this:\n\n    total = 0\n    for n in [1, 2]:\n        total += n\n    print(total)\n\nThanks")[0]["code"]
+      .startswith("total = 0"))
+
+_pj, _pc = llm.chat_json, llm.chat
+llm.chat_json = lambda m, p, s, **k: {"summary": "It averages each window of readings.",
+                                       "steps": [{"lines": "8-11", "what": "Loops over every position."},
+                                                 {"lines": "99", "what": "Invented line."}],       # out of range: dropped
+                                       "issues": ["Line 9 also uses windows that run past the end."]}
+FIXED = ('```python\ndef moving_average(values, window):\n    """Average of each full window of readings.\n'
+         '    >>> moving_average([1, 2, 3, 4], 2)\n    [1.5, 2.5, 3.5]\n    >>> moving_average([1, 2], 5)\n    []\n'
+         '    """\n    return [sum(values[i:i + window]) / window for i in range(len(values) - window + 1)]\n```')
+llm.chat = lambda *a, **k: FIXED
+a = pipeline.answer("Explain this code and run it", [str(DEMO / "assignment.txt")], pipeline.Session(), extras=False)
+ev = a.evidence
+check("routed to explain_code with the real run attached", a.route.task == "explain_code" and ev["run"]["examples"])
+check("explanation line refs checked against the code", [s["lines"] for s in ev["explanation"]["steps"]] == ["8-11"])
+check("source location shown", ev["where"].startswith("assignment.txt, line"))
+a = pipeline.answer("Fix this code", [str(DEMO / "assignment.txt")], pipeline.Session(), extras=False)
+check("fix is checked against the same examples", a.answer.startswith("Fixed: the corrected code passes 2 of 2")
+      and all(e["ok"] for e in a.evidence["fixed_run"]["examples"]), a.answer)
+llm.chat = lambda *a, **k: "```python\ndef moving_average(values, window):\n    return []\n```"
+a = pipeline.answer("Fix this code", [str(DEMO / "assignment.txt")], pipeline.Session(), extras=False)
+check("a fix that drops the docstring is still tested on the original examples",
+      a.evidence["fixed_run"]["examples"] and "1 of 2" in a.answer, a.answer)
+llm.chat_json, llm.chat = _pj, _pc
+
 # --- 9. Installer pieces (no downloads) ------------------------------------------------------------------
 print("installer")
 from neuroassist import installer  # noqa: E402
