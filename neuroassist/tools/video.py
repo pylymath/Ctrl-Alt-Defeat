@@ -7,6 +7,7 @@ from ..schema import Answer
 
 DENSE_TASKS = {"count_events", "count", "motion", "sequence"}
 
+UNSURE = "I could not tell."
 ANSWER = {"type": "object", "required": ["answer"], "properties": {"answer": {"type": "string"}}}
 FRAMES = {"type": "object", "required": ["frames"], "properties": {"frames": {"type": "array", "items": {
     "type": "object", "required": ["t", "description"], "properties": {
@@ -30,7 +31,7 @@ def _direct(question, frames, duration, task) -> Answer:
               "Answer in one short, direct sentence.")
     r = llm.chat_json(config.VISION_MODEL, prompt, ANSWER, images=[f.jpeg for f in frames],
                       num_ctx=config.NUM_CTX_VIDEO, max_tokens=120)
-    return Answer((r.get("answer") or "").strip() or "I could not tell.",
+    return Answer((r.get("answer") or "").strip() or UNSURE,
                   evidence={"frames_used": [round(f.t, 2) for f in frames], "mode": "direct"})
 
 
@@ -69,7 +70,7 @@ def _timeline(question, frames, duration, task, batch: int = 4) -> Answer:
                       f"Timeline of a {duration:.1f}-second video, one line per sampled frame:\n{log}\n\n"
                       f"{HINTS.get(task, '')}\nQuestion: {question}\nAnswer in one short, direct sentence.",
                       ANSWER, num_ctx=config.NUM_CTX_DOC, max_tokens=120)
-    return Answer((r.get("answer") or "").strip() or "I could not tell.",
+    return Answer((r.get("answer") or "").strip() or UNSURE,
                   evidence={"timeline": events, "mode": "timeline"})
 
 
@@ -80,5 +81,17 @@ def run(question, files, route, session) -> Answer:
     if mode == "auto":
         mode = "direct" if len(frames) <= config.VIDEO_DIRECT_MAX_FRAMES else "timeline"
     ans = (_direct if mode == "direct" else _timeline)(question, frames, duration, route.task)
+    if ans.answer == UNSURE:
+        # Harness fallback: the 10 failed practice clips were all empty replies, not wrong ones.
+        # Try the other mode once (direct <-> timeline) before saying "I could not tell".
+        other = "timeline" if mode == "direct" else "direct"
+        if other == "direct" and len(frames) > config.VIDEO_DIRECT_MAX_FRAMES:
+            step = len(frames) / config.VIDEO_DIRECT_MAX_FRAMES
+            frames = [frames[round(i * step)] for i in range(config.VIDEO_DIRECT_MAX_FRAMES - 1)] + [frames[-1]]
+        llm.note("fallback", config.VISION_MODEL, f"video {mode} gave no answer, trying {other}")
+        second = (_direct if other == "direct" else _timeline)(question, frames, duration, route.task)
+        if second.answer != UNSURE:
+            second.notes.append(f"{mode} mode gave no answer; answered with {other} mode")
+            ans = second
     ans.evidence["duration_s"] = round(duration, 2)
     return ans

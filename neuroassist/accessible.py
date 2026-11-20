@@ -76,6 +76,113 @@ def make_flashcards(source: str, n: int = 6) -> list[dict]:
     return [c for c in cards if _supported(c["a"], source)][:n]
 
 
+# --- Plain language (dyslexia) and literal meaning (autism) -------------------------------------
+PLAIN = {"type": "object", "required": ["plain"], "properties": {"plain": {"type": "string"}}}
+
+LITERAL = {"type": "object", "required": ["items"], "properties": {"items": {
+    "type": "array", "maxItems": 8, "items": {
+        "type": "object", "required": ["phrase", "kind", "meaning"], "properties": {
+            "phrase": {"type": "string"},
+            "kind": {"enum": ["idiom", "vague", "implied", "jargon"]},
+            "meaning": {"type": "string"}}}}}}
+
+# How each kind is labelled to the student: a common meaning is not a claim about what the author meant.
+KIND_LABEL = {"idiom": "Common meaning", "vague": "Not exact", "implied": "Expected but not said directly",
+              "jargon": "Means"}
+
+
+def _paragraphs(text: str, limit: int = 6) -> list[str]:
+    paras = [p.strip() for p in re.split(r"\n\s*\n", text) if len(p.strip()) > 40]
+    if len(paras) < 2:      # one block of text: group sentences in threes
+        sents = re.split(r"(?<=[.!?])\s+", text.strip())
+        paras = [" ".join(sents[i:i + 3]) for i in range(0, len(sents), 3)]
+    return [p for p in paras if p.strip()][:limit]
+
+
+def plain_rewrite(source: str) -> list[dict]:
+    """Paragraph by paragraph: {original, plain, checked}. A rewrite that adds a number the original
+    never says, or drops one it does, is not shown (checked=False keeps the original instead)."""
+    out = []
+    for para in _paragraphs(source):
+        r = llm.chat_json(config.CARD_MODEL,
+                          f"Text:\n<<<\n{para}\n>>>\n\nRewrite this in plain language for a reader with dyslexia: "
+                          "short sentences (under 15 words), everyday words, one idea per sentence. Keep every "
+                          "name, number, date and condition (must, only, unless, before). Do not add anything.",
+                          PLAIN, system=SYSTEM, num_ctx=config.NUM_CTX_DOC, max_tokens=300)
+        plain = (r.get("plain") or "").strip()
+        nums = re.findall(r"\b\d[\d,.]*\d\b|\b\d\b", para)
+        ok = bool(plain) and not unknown_numbers(plain, para) and all(n.replace(",", "") in plain.replace(",", "")
+                                                                      for n in nums)
+        out.append({"original": para, "plain": plain if ok else para, "checked": ok})
+    return out
+
+
+def literal_notes(source: str) -> list[dict]:
+    """Idioms (with their COMMON meaning), vague words ('soon', 'a few', 'where relevant'), things
+    expected but not said, and jargon. Only phrases that really occur in the source are kept. No
+    sarcasm or intent detection: it says what a phrase usually means, or that the text is not exact."""
+    r = llm.chat_json(config.CARD_MODEL,
+                      f"Text:\n<<<\n{_clip(source)}\n>>>\n\nFind phrases a literal reader might find unclear. "
+                      "'phrase': copy it exactly from the text. 'kind': idiom (a figure of speech), vague (no "
+                      "exact amount, time or standard, e.g. 'soon', 'a few', 'where relevant', 'sensible'), "
+                      "implied (something expected but not said directly), or jargon. 'meaning': for an idiom, "
+                      "its common meaning; for a vague phrase, say exactly what the text does NOT specify (e.g. "
+                      "'The text does not give an exact date.') and suggest asking the teacher; for implied, what "
+                      "is probably expected; for jargon, a plain definition.",
+                      LITERAL, system=SYSTEM, num_ctx=config.NUM_CTX_DOC, max_tokens=700)
+    src = _norm(source)
+    seen, out = set(), []
+    for it in r.get("items", []):
+        if not isinstance(it, dict) or not it.get("phrase") or not it.get("meaning"):
+            continue
+        p = _norm(it["phrase"])
+        kind = it.get("kind") if it.get("kind") in KIND_LABEL else "vague"
+        if len(p) < 3 or p not in src or p in seen or unknown_numbers(it["meaning"], source):
+            continue
+        seen.add(p)
+        out.append({"phrase": it["phrase"].strip(), "kind": kind, "label": KIND_LABEL[kind],
+                    "meaning": it["meaning"].strip()})
+    return out
+
+
+# --- Make this easier (a selected passage) -------------------------------------------------------
+GIST = {"type": "object", "required": ["gist", "details"], "properties": {
+    "gist": {"type": "string"}, "details": {"type": "array", "maxItems": 6, "items": {"type": "string"}}}}
+
+ACTION = re.compile(r"^(please\s+)?(you\s+(must|should|need to|have to|will need to)\s+|make sure\s+|remember to\s+|"
+                    r"don'?t\s+|do not\s+|be sure to\s+)?(submit|include|write|read|use|add|create|save|name|"
+                    r"compute|remove|start|finish|hand in|upload|plot|test|explain|compare|describe|list|check|"
+                    r"bring|email|send|complete|answer|draw|ask|open|run|print|cite|reference)\b", re.I)
+DUTY = re.compile(r"\b(must|should|need to|have to|make sure|required|due)\b", re.I)
+
+
+def instructions(text: str) -> list[str]:
+    """Sentences that tell the reader to do something, in order, word for word (no model)."""
+    sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", text) if s.strip()]
+    return [s for s in sents if (ACTION.search(s) or DUTY.search(s)) and len(s.split()) >= 5
+            and not re.search(r"\bnot (required|needed|necessary)\b", s, re.I)]
+
+
+def easier(passage: str) -> dict:
+    """Everything 'Make this easier' shows for one passage: a one-sentence gist with expandable
+    details, the plain-language rewrite beside the original, unclear phrases (highlighted in the
+    original), and its instructions one at a time. Facts checked against the passage."""
+    passage = passage.strip()
+    if not passage:
+        return {}
+    r = llm.chat_json(config.CARD_MODEL,
+                      f"Text:\n<<<\n{_clip(passage)}\n>>>\n\n'gist': what this text is about and what it asks, "
+                      "in ONE short plain sentence. 'details': up to 6 key points, each under 15 words, in order.",
+                      GIST, system=SYSTEM, num_ctx=config.NUM_CTX_DOC, max_tokens=400)
+    gist = (r.get("gist") or "").strip()
+    if gist and unknown_numbers(gist, passage):
+        gist = ""
+    details = [d.strip() for d in r.get("details", []) if isinstance(d, str) and d.strip()
+               and not unknown_numbers(d, passage)]
+    return {"gist": gist, "details": details, "plain": plain_rewrite(passage),
+            "unclear": literal_notes(passage), "instructions": instructions(passage)}
+
+
 # --- Captions -----------------------------------------------------------------------------------
 def _ts(t: float) -> str:
     h, rem = divmod(max(t, 0.0), 3600)

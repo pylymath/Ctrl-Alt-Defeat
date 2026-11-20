@@ -1,0 +1,26 @@
+CS 1010 - Lab 4: Smoothing Sensor Data
+
+Overview
+Our weather station records one temperature reading every minute, and the raw readings are noisy. In this lab you will write a program that smooths the readings with a moving average and plots the result.
+
+What you must submit
+You must submit a single Python file named lab4.py that contains a function called moving_average.
+The function must take a list of numbers and a window size, and return a list of the averages.
+You must also submit a plot of the raw and smoothed readings saved as lab4_plot.png.
+Include at least three test cases for moving_average, including one where the window is larger than the list.
+Write a short reflection of 150 to 200 words explaining what the window size changes in the plot.
+
+Data
+Use the file station_readings.csv from the course page. Read it, remove any rows where the temperature is missing, and then compute the moving average.
+
+How it is marked
+The function is worth 50 percent, the plot is worth 20 percent, the tests are worth 20 percent and the reflection is worth 10 percent.
+
+Deadline
+Submit everything on the course page by Friday 5 pm. Late work loses 10 percent per day.
+
+Bonus (optional)
+If you want to go the extra mile, add a second line to the plot using a weighted moving average. This is not required and is not needed for full marks.
+
+A few last notes
+Your code should be self-explanatory, so name things sensibly. Ask for help in a timely manner if you get stuck, and feel free to look at the examples from lecture where relevant.

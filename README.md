@@ -4,7 +4,7 @@ Offline multimodal assistant for students with ADHD and dyslexia. One interface 
 audio, documents, code and short videos; every model runs locally through Ollama, with no internet.
 
 **Run it:** `python -m neuroassist.ui` opens the app at http://127.0.0.1:7860 (local only, Gradio
-analytics off).
+analytics off). `--lan` also serves it to phones on the same Wi-Fi; inference stays on the laptop.
 
 ## How it works
 
@@ -55,6 +55,34 @@ does not contain it.
 Settings live in [`neuroassist/config.py`](neuroassist/config.py). Every value can be overridden with
 an `NEUROASSIST_*` environment variable. Machines with under 12 GB RAM get the `lite` profile
 automatically (`qwen3-vl:2b`, Whisper `base`, fewer video frames).
+
+### Workspace: Understand · Do · Resume
+
+Built around one assignment and all of its materials. Saved as JSON in `~/.neuroassist/workspaces/`,
+never uploaded. Labels keep three things apart: **what a file says** (quotes, with their place),
+**rewritten wording** (plain language, gists), and **suggestions** (steps).
+
+| Feature | What it does | What keeps it honest |
+|---|---|---|
+| **Help me start** (Do) | Requirements from every file, grouped into hand in / deadlines / rules / marking / optional, then *suggested* steps | each requirement must quote a sentence that code finds in the file, with its place (`page 2`, `line 20`, `00:11`); no time estimates; "no deadline found, ask your teacher" |
+| **Connect my materials** (Do) | Links each requirement to passages in the other files (recording, slides, photo/video descriptions); flags deadlines and length limits that disagree | linking is plain word overlap, so it shows *why* ("mentions moving, average"); conflicts read **"check both"**, and the app never picks one |
+| **Make this smaller / Focus mode / timer** (Do) | Splits a step into smaller actions; shows one step and the sentence it serves; a work timer the student starts | the timer is the student's own, not a deadline |
+| **I lost the thread** (Understand) | "Catch me up from 12:40" / "between 2:00 and 3:30" / "the last 5 minutes" on a recording or video | each recap point keeps a real timestamp from that window (others are dropped); instructions are quoted word for word |
+| **Where was I?** (Resume) | Goal, progress, last step finished, next step and its source, last file and question, deadlines, open questions, recent activity | read from the saved record with **no model call** |
+| **Make this easier** (Understand) | For a passage: a one-line gist with details folded away, instructions one at a time, unclear phrases highlighted in the original, plain language beside the original | idioms get their *common meaning*; vague words get "the text does not specify…"; no sarcasm or intent detection; rewrites that change a number aren't shown |
+
+### Harness (the code around every model call)
+
+- **Empty replies are retried**, then the other video mode is tried (direct ↔ timeline), before anything says
+  "I could not tell". All 10 failed practice videos were empty replies.
+- **Fixed context per model.** Ollama reloads a model whenever its context size changes, and the vision model was called
+  with 1k/4k/12k contexts.
+- **Time limit per call** (`NEUROASSIST_LLM_TIMEOUT`, default 180 s), with a clear message; saved work is kept.
+- **Every step is recorded** in "How I got this answer": model, time, **GPU memory**, and any retry or fallback.
+- `scripts/ollama_settings.ps1`: one request at a time, at most 2 models loaded, flash attention, 8-bit context memory.
+- `tests/offline_checks.py`: 54 checks of the above using a stand-in model, with no Ollama or GPU (about 10 s).
+
+`DEMO.md` is the 5-minute demo script; `assets/demo/` holds its files.
 
 ## Setup on the demo laptop (Legion)
 

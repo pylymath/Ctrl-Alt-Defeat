@@ -70,6 +70,24 @@ NUM_CTX_IMAGE = _env("NUM_CTX_IMAGE", 4096, int)
 NUM_CTX_VIDEO = _env("NUM_CTX_VIDEO", 12288, int)   # 16 frames of Qwen3-VL need ~7.5k
 NUM_CTX_CODE = _env("NUM_CTX_CODE", 4096, int)
 
+
+def pinned_ctx(model: str, requested: int) -> int:
+    """Ollama reloads a model whenever num_ctx changes. The vision model is called with 1k (router),
+    4k (images, documents) and 12k (video) contexts, so without this every switch between a photo
+    and a video cost a full reload. Each model gets one fixed context: the largest it is used with."""
+    if not PIN_CTX:
+        return requested
+    if model in (VISION_MODEL, TEXT_MODEL):
+        return max(requested, NUM_CTX_VIDEO if model == VISION_MODEL else NUM_CTX_DOC)
+    return max(requested, NUM_CTX_DOC)
+
+
+# --- Harness -----------------------------------------------------------------------------------
+PIN_CTX = _env("PIN_CTX", "1") == "1"
+LLM_TIMEOUT = _env("LLM_TIMEOUT", 180.0, float)     # seconds per model call before giving up
+EMPTY_RETRIES = _env("EMPTY_RETRIES", 1, int)        # retries when a model returns nothing usable
+TRACK_VRAM = _env("TRACK_VRAM", "1") == "1"          # record GPU memory per step (Ollama /api/ps)
+
 # --- Behaviour switches the eval compares ----------------------------------------------------
 COUNT_MODE = _env("COUNT_MODE", "boxes")          # "boxes" (count boxes in code) | "direct"
 VIDEO_MODE = _env("VIDEO_MODE", "auto")           # "direct" | "timeline" | "auto"

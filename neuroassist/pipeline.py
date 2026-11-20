@@ -5,6 +5,8 @@ A request becomes a short plan of steps, run in order, each with its own model:
     core      one tool per file (vision / Whisper + text / coder ...), or one per sub-question
     combine   several files or sub-questions -> one answer (text model)
     card      accessible summary card (card model, checked against the source)
+    plain     paragraph-by-paragraph plain-language rewrite (numbers checked against each paragraph)
+    literal   idioms / vague words / implied expectations explained literally (phrases must be in the source)
     flashcards                          (card model, checked against the source)
     captions  WebVTT: Whisper speech cues + vision-model "[Visual]" cues for video
     tts       the answer (or card) read aloud, offline
@@ -34,7 +36,7 @@ class Session:
 
 
 _default_session = Session()
-POST_STEPS = ("card", "flashcards", "captions", "tts")
+POST_STEPS = ("card", "plain", "literal", "flashcards", "captions", "tts")
 
 
 def _handlers():
@@ -48,20 +50,36 @@ def _model_for(r: Route) -> str:
         return config.VISION_MODEL
     if r.kind == "audio":
         return f"whisper-{config.WHISPER_MODEL}" if r.task != "identify_sound" else "AST sound classifier"
+    if r.task == "catchup":
+        return f"whisper-{config.WHISPER_MODEL} + {config.TEXT_MODEL}"
     if r.kind == "code" or r.task == "write_code":
         return config.CODE_MODEL
     return config.CARD_MODEL if r.task == "summarize" else config.QA_MODEL
 
 
 def _step(trace: list, name: str, model: str, fn: Callable):
-    t = time.perf_counter()
+    """Run one step and record it: model, time, harness events (retries, timeouts, fallbacks) and
+    the GPU memory Ollama holds after it, so the UI can show what the step really cost."""
+    t, n_events = time.perf_counter(), len(llm.events)
+
+    def record(ok: bool, **extra):
+        row = {"step": name, "model": model, "ms": round((time.perf_counter() - t) * 1000), "ok": ok, **extra}
+        ev = llm.events[n_events:]
+        if ev:
+            row["events"] = [f"{e['kind']}: {e['detail']}" for e in ev]
+        if config.TRACK_VRAM:
+            mem = llm.loaded()
+            if mem:
+                row["vram_gb"] = round(sum(m["vram_gb"] for m in mem), 1)
+                row["loaded"] = [m["name"] for m in mem]
+        trace.append(row)
+
     try:
         out = fn()
-        trace.append({"step": name, "model": model, "ms": round((time.perf_counter() - t) * 1000), "ok": True})
+        record(True)
         return out
     except Exception as e:
-        trace.append({"step": name, "model": model, "ms": round((time.perf_counter() - t) * 1000), "ok": False,
-                      "error": f"{type(e).__name__}: {e}"})
+        record(False, error=f"{type(e).__name__}: {e}")
         raise
 
 
@@ -76,8 +94,18 @@ def split_questions(question: str) -> list[str]:
 
 def _core(question: str, files: list, session: Session, trace: list, label: str = "answer") -> Answer:
     r = router.route(question, files)
+    if r.task == "rewrite":
+        what = " and ".join(x for x, m in (("in plain language", "plain"), ("with literal meanings", "literal"))
+                            if m in r.modifiers)
+        ans = Answer(f"Here is your {r.kind} {what}.")
+        ans.route = r
+        return ans
+    handler = _handlers()[r.kind]
+    if r.task == "catchup":
+        from .tools import catchup
+        handler = catchup.run
     ans = _step(trace, f"{label}: {r.kind} / {r.task}", _model_for(r),
-                lambda: _handlers()[r.kind](question, files, r, session))
+                lambda: handler(question, files, r, session))
     ans.route = r
     return ans
 
@@ -161,13 +189,19 @@ def _post(question: str, ans: Answer, files: list, session: Session, wanted: lis
     src = None
     for name in [s for s in POST_STEPS if s in wanted]:
         try:
-            if name in ("card", "flashcards") and src is None:
+            if name in ("card", "flashcards", "plain", "literal") and src is None:
                 src = source_text(ans, files, session)
             if name == "card":
                 if ans.abstain:
                     continue
                 ans.card = _step(trace, "summary card", config.CARD_MODEL,
                                  lambda: accessible.make_card(question, ans.answer, src))
+            elif name == "plain":
+                ans.plain = _step(trace, "plain-language rewrite", config.CARD_MODEL,
+                                  lambda: accessible.plain_rewrite(src))
+            elif name == "literal":
+                ans.literal = _step(trace, "literal meanings", config.CARD_MODEL,
+                                    lambda: accessible.literal_notes(src))
             elif name == "flashcards":
                 ans.flashcards = _step(trace, "flashcards", config.CARD_MODEL,
                                        lambda: accessible.make_flashcards(src))

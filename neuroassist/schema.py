@@ -20,6 +20,8 @@ class Answer:
     abstain: bool = False                              # True = "the input does not contain this"
     card: dict[str, Any] | None = None                 # summary card (accessibility layer)
     flashcards: list[dict] | None = None               # [{q, a}] (accessibility layer)
+    plain: list[dict] | None = None                    # [{original, plain, checked}] plain-language rewrite
+    literal: list[dict] | None = None                  # [{phrase, kind, meaning}] literal meanings
     captions: str | None = None                        # WebVTT text (accessibility layer)
     speech_path: str | None = None                     # WAV of the answer read aloud
     steps: list[dict] = field(default_factory=list)    # what ran, in order: step, model, ms, ok

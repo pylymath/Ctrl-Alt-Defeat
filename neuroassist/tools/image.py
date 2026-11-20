@@ -62,6 +62,20 @@ PROMPTS = {
 }
 
 
+DESCRIBE = {"type": "object", "required": ["description", "text"], "properties": {
+    "description": {"type": "string"}, "text": {"type": "string"}}}
+
+
+def describe(path) -> str:
+    """One plain description of a photo/diagram plus any text in it, for linking to other files."""
+    img = prepare_image(path, config.IMAGE_SIDE)
+    r = llm.chat_json(config.VISION_MODEL,
+                      "Describe this image for a student: what it shows, any labels, and what arrows or lines "
+                      "connect. In 'text' copy any written words exactly.", DESCRIBE, images=[img],
+                      num_ctx=config.NUM_CTX_IMAGE, max_tokens=300)
+    return " ".join(x.strip() for x in (r.get("description", ""), r.get("text", "")) if x and x.strip())
+
+
 def run(question, files, route, session) -> Answer:
     path = files[0]
     img = session.memo(path, "image", lambda: prepare_image(path, config.IMAGE_SIDE), config.IMAGE_SIDE)
