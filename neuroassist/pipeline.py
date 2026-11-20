@@ -50,7 +50,7 @@ def _model_for(r: Route) -> str:
         return f"whisper-{config.WHISPER_MODEL}" if r.task != "identify_sound" else "AST sound classifier"
     if r.kind == "code" or r.task == "write_code":
         return config.CODE_MODEL
-    return config.CARD_MODEL if r.task == "summarize" else config.TEXT_MODEL
+    return config.CARD_MODEL if r.task == "summarize" else config.QA_MODEL
 
 
 def _step(trace: list, name: str, model: str, fn: Callable):

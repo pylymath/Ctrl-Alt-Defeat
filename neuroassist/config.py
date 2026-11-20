@@ -25,9 +25,9 @@ def _total_ram_gb() -> float:
 
 # "lite" = CPU-only / <12 GB RAM laptops. "standard" = a 6 GB+ GPU or 16 GB+ RAM.
 PROFILES = {
-    "lite": dict(vision="qwen3-vl:2b", whisper="base", video_max_frames=8, video_side=336,
+    "lite": dict(vision="qwen3-vl:2b-instruct", whisper="base", video_max_frames=8, video_side=336,
                  image_side=896, video_fps_dense=2.0, video_fps_sparse=0.5),
-    "standard": dict(vision="qwen3-vl:4b", whisper="small", video_max_frames=16, video_side=448,
+    "standard": dict(vision="qwen3-vl:4b-instruct", whisper="small", video_max_frames=16, video_side=448,
                      image_side=1280, video_fps_dense=4.0, video_fps_sparse=1.0),
 }
 PROFILE = os.environ.get("NEUROASSIST_PROFILE") or ("lite" if _total_ram_gb() < 12 else "standard")
@@ -42,6 +42,10 @@ def _env(name, default, cast=str):
 # --- Models -------------------------------------------------------------------------------
 VISION_MODEL = _env("VISION_MODEL", _P["vision"])          # images + video, stays loaded
 TEXT_MODEL = _env("TEXT_MODEL", VISION_MODEL)               # documents, transcripts, cards, router
+# Grounded question answering only (strict JSON: found / quote / answer). Point it at a QA fine-tune,
+# e.g. NEUROASSIST_QA_MODEL=neuro-doc-qa:latest. Summaries, cards, video timelines and chat keep using
+# TEXT_MODEL, because a QA-only fine-tune is bad at everything else.
+QA_MODEL = _env("QA_MODEL", TEXT_MODEL)
 CODE_MODEL = _env("CODE_MODEL", "qwen2.5-coder:3b")         # swapped in only for code
 # Writes the accessible summary cards. Point it at the Colab fine-tune once imported into Ollama,
 # e.g. NEUROASSIST_CARD_MODEL=neuro-assist. Defaults to the main model (no swap).
@@ -56,14 +60,14 @@ SWAPPED_KEEP_ALIVE = _env("SWAPPED_KEEP_ALIVE", "0")
 
 def keep_alive(model: str):
     """Main model stays loaded; anything else is unloaded right after use."""
-    return RESIDENT_KEEP_ALIVE if model in (VISION_MODEL, TEXT_MODEL) else int(SWAPPED_KEEP_ALIVE)
+    return RESIDENT_KEEP_ALIVE if model in (VISION_MODEL, TEXT_MODEL, QA_MODEL) else int(SWAPPED_KEEP_ALIVE)
 
 
 # --- Context sizes (tokens). Smaller = less memory and faster prompt processing. ---------------
 NUM_CTX_ROUTER = _env("NUM_CTX_ROUTER", 1024, int)
 NUM_CTX_DOC = _env("NUM_CTX_DOC", 4096, int)
 NUM_CTX_IMAGE = _env("NUM_CTX_IMAGE", 4096, int)
-NUM_CTX_VIDEO = _env("NUM_CTX_VIDEO", 6144, int)
+NUM_CTX_VIDEO = _env("NUM_CTX_VIDEO", 12288, int)   # 16 frames of Qwen3-VL need ~7.5k
 NUM_CTX_CODE = _env("NUM_CTX_CODE", 4096, int)
 
 # --- Behaviour switches the eval compares ----------------------------------------------------

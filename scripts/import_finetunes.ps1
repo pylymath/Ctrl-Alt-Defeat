@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 $text = @(
     @{ Name = "neuro-card-writer"; Setting = "NEUROASSIST_CARD_MODEL" },
     @{ Name = "neuro-coder";       Setting = "NEUROASSIST_CODE_MODEL" },
-    @{ Name = "neuro-doc-qa";      Setting = "NEUROASSIST_TEXT_MODEL" }
+    @{ Name = "neuro-doc-qa";      Setting = "NEUROASSIST_QA_MODEL" }
 )
 $settings = [ordered]@{}
 

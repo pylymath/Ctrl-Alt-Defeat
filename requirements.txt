@@ -4,6 +4,7 @@ opencv-python-headless
 pypdf
 gradio>=5,<7
 faster-whisper
+av>=16,<19          # PyAV 19 removed an option faster-whisper 1.2 still passes
 # Sound identification (AST on AudioSet). Pulls torch; skip it if you only need speech.
 transformers
 torch

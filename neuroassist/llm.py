@@ -38,7 +38,12 @@ def chat(model: str, prompt: str, *, images=None, system: str | None = None, sch
             raise RuntimeError(f"Model '{model}' is not pulled. Run: ollama pull {model}") from e
         else:
             raise
-    return r.message.content or ""
+    text = r.message.content or ""
+    # Some Ollama versions put the whole reply in `thinking` (and leave `content` empty) when
+    # think=False is combined with a JSON format, notably for Qwen3-VL. That text IS the answer.
+    if not text.strip() and kw.get("think") is False:
+        text = getattr(r.message, "thinking", None) or ""
+    return text
 
 
 def chat_json(model: str, prompt: str, schema: dict, **kw) -> dict:

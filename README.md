@@ -67,7 +67,7 @@ automatically (`qwen3-vl:2b`, Whisper `base`, fewer video frames).
    ```
 2. **Models:**
    ```powershell
-   ollama pull qwen3-vl:4b
+   ollama pull qwen3-vl:4b-instruct   # -instruct: the plain `4b` tag is the thinking model
    ollama pull qwen2.5-coder:3b
    ```
    With 12 GB+ of VRAM, also try `qwen3-vl:8b` via `$env:NEUROASSIST_VISION_MODEL="qwen3-vl:8b"` and keep
@@ -130,8 +130,11 @@ The notebooks in `finetune/` save everything to Google Drive under `neuroassist-
 4. **Make the winners permanent** with `setx NAME "value"` (applies to new terminal windows), then rerun
    `python -m neuroassist.prefetch` to load-check everything.
 
-Memory: the main vision model and `TEXT_MODEL` stay loaded; the coder and card writer are loaded only when
-used. With the doc-QA fine-tune as `TEXT_MODEL` that is two resident models (about 6 GB of VRAM).
+Memory: the main vision model (also `TEXT_MODEL`) and `QA_MODEL` stay loaded; the coder and card writer are
+loaded only when used. With the doc-QA fine-tune as `QA_MODEL` that is two resident models (about 6 GB of VRAM).
+
+`QA_MODEL` is used only for grounded document/transcript questions. Do not point `TEXT_MODEL` at a QA
+fine-tune: summaries, cards, flashcards, video timelines and chat all use `TEXT_MODEL`.
 
 ## Quick manual test (no UI)
 

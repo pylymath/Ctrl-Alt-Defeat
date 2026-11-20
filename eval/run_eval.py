@@ -31,6 +31,8 @@ def needed_models(modalities):
     if {"image", "video", "text", "audio"} & set(modalities):
         m.add(config.VISION_MODEL if {"image", "video"} & set(modalities) else config.TEXT_MODEL)
         m.add(config.TEXT_MODEL)
+        if {"text", "audio"} & set(modalities):
+            m.add(config.QA_MODEL)
     if "code" in modalities:
         m.add(config.CODE_MODEL)
     return m
@@ -70,9 +72,9 @@ def main():
 
     mods = sorted({i["modality"] for i in items}, key=ORDER.index)
     have = llm.installed_models()
-    missing = [m for m in needed_models(mods) if m not in have]
+    missing = [m for m in needed_models(mods) if m not in have and f"{m}:latest" not in have]
     print(f"profile={config.PROFILE} vision={config.VISION_MODEL} text={config.TEXT_MODEL} "
-          f"code={config.CODE_MODEL} whisper={config.WHISPER_MODEL}")
+          f"qa={config.QA_MODEL} code={config.CODE_MODEL} whisper={config.WHISPER_MODEL}")
     if missing:
         sys.exit("Missing Ollama models: " + ", ".join(missing) + "\nPull with: "
                  + " ; ".join(f"ollama pull {m}" for m in missing))

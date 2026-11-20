@@ -22,7 +22,7 @@ CARD = {"type": "object", "required": ["title", "one_line", "bullets", "key_term
         "properties": {"term": {"type": "string"}, "meaning": {"type": "string"}}}}}}
 
 FLASH = {"type": "object", "required": ["cards"], "properties": {"cards": {
-    "type": "array", "maxItems": 8, "items": {
+    "type": "array", "maxItems": 6, "items": {
         "type": "object", "required": ["q", "a"], "properties": {"q": {"type": "string"}, "a": {"type": "string"}}}}}}
 
 SYSTEM = ("You rewrite information for students with ADHD or dyslexia. Use short sentences and everyday words. "
@@ -68,9 +68,11 @@ def make_flashcards(source: str, n: int = 6) -> list[dict]:
     r = llm.chat_json(config.CARD_MODEL,
                       f"Source:\n<<<\n{_clip(source)}\n>>>\n\nWrite up to {n} flashcards that test the key facts in "
                       "the source. 'q': a short question. 'a': a short answer (a few words) taken from the source.",
-                      FLASH, system=SYSTEM, num_ctx=config.NUM_CTX_DOC, max_tokens=600)
+                      FLASH, system=SYSTEM, num_ctx=config.NUM_CTX_DOC, max_tokens=900)
     cards = [{"q": c["q"].strip(), "a": c["a"].strip()} for c in r.get("cards", [])
              if isinstance(c, dict) and c.get("q") and c.get("a")]
+    cards = [c for c in cards if len(c["a"]) > 1 and not re.search(r"[-–—:,(]\s*$", c["a"])
+             and c["q"].rstrip().endswith("?")]          # drop cut-off or malformed cards
     return [c for c in cards if _supported(c["a"], source)][:n]
 
 

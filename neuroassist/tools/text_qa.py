@@ -58,7 +58,7 @@ def answer_from_text(question: str, doc: str, source: str = "document") -> Answe
     if missing:
         return Answer(NOT_FOUND.format(source=source), abstain=True, confidence=0.8,
                       evidence={"reason": f"question mentions {', '.join(missing)}, which the {source} never does"})
-    r = llm.chat_json(config.TEXT_MODEL,
+    r = llm.chat_json(config.QA_MODEL,
                       PROMPT.format(Source=source.capitalize(), source=source, doc=doc, question=question),
                       SCHEMA, system=SYSTEM.format(source=source), num_ctx=config.NUM_CTX_DOC, max_tokens=200)
     found, quote, ans = bool(r.get("found")), (r.get("quote") or "").strip(), (r.get("answer") or "").strip()

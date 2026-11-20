@@ -7,6 +7,7 @@ import os
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")   # fully offline: no usage pings
 
 import html
+import re
 import tempfile
 import threading
 import traceback
@@ -70,7 +71,7 @@ def status_html() -> str:
     if not have:
         return ("<div class='na-status'>⚠️ Ollama is not running. Start the Ollama app, then reload this page."
                 "</div>")
-    need = dict.fromkeys([config.VISION_MODEL, config.TEXT_MODEL, config.CODE_MODEL, config.CARD_MODEL])
+    need = dict.fromkeys([config.VISION_MODEL, config.TEXT_MODEL, config.QA_MODEL, config.CODE_MODEL, config.CARD_MODEL])
 
     def present(m):
         return m in have or f"{m}:latest" in have
@@ -86,7 +87,20 @@ def _esc(s) -> str:
     return html.escape(str(s or ""))
 
 
-def render(res: dict | None, font: str, size: int, spacing: float, bg: str) -> str:
+def _bionic(s) -> str:
+    """Bold the first half of every word (bionic reading). Escapes the text itself."""
+    out = []
+    for tok in re.split(r"(\w+)", str(s or "")):
+        if tok and re.fullmatch(r"\w+", tok) and not tok.isdigit():
+            k = (len(tok) + 1) // 2
+            out.append(f"<b>{html.escape(tok[:k])}</b>{html.escape(tok[k:])}")
+        else:
+            out.append(html.escape(tok))
+    return "".join(out)
+
+
+def render(res: dict | None, font: str, size: int, spacing: float, bg: str, bionic: bool = False) -> str:
+    T = _bionic if bionic else _esc
     page, ink, surface = BACKGROUNDS.get(bg, BACKGROUNDS["White"])
     style = (f"background:{page};color:{ink};font-family:{FONTS.get(font, FONTS['Standard'])};"
              f"font-size:{size}px;line-height:{spacing};")
@@ -112,23 +126,23 @@ def render(res: dict | None, font: str, size: int, spacing: float, bg: str) -> s
         out.append(f"<div class='na-code' style='background:{surface}'>{_esc(res['answer'])}</div>")
     else:
         lines = [ln for ln in str(res["answer"]).split("\n") if ln.strip()]
-        out.append("".join(f"<p class='na-answer'>{_esc(ln)}</p>" for ln in lines))
+        out.append("".join(f"<p class='na-answer'>{T(ln)}</p>" for ln in lines))
 
     card = res.get("card")
     if card:
-        out.append(f"<div class='na-card' style='background:{surface}'><h3>📌 {_esc(card['title'])}</h3>"
-                   f"<div>{_esc(card['one_line'])}</div>")
+        out.append(f"<div class='na-card' style='background:{surface}'><h3>📌 {T(card['title'])}</h3>"
+                   f"<div>{T(card['one_line'])}</div>")
         if card.get("bullets"):
-            out.append("<ul>" + "".join(f"<li>{_esc(b)}</li>" for b in card["bullets"]) + "</ul>")
+            out.append("<ul>" + "".join(f"<li>{T(b)}</li>" for b in card["bullets"]) + "</ul>")
         if card.get("key_terms"):
             out.append("<dl class='na-terms' style='margin-top:10px'>" + "".join(
-                f"<dt>{_esc(t['term'])}</dt><dd>{_esc(t.get('meaning'))}</dd>" for t in card["key_terms"]) + "</dl>")
+                f"<dt>{_esc(t['term'])}</dt><dd>{T(t.get('meaning'))}</dd>" for t in card["key_terms"]) + "</dl>")
         out.append("</div>")
 
     if res.get("flashcards"):
         out.append("<div class='na-flash' style='margin-top:18px'><h3 style='margin:0'>🃏 Flashcards "
                    "<span style='font-weight:400;font-size:.8em'>(tap to flip)</span></h3>")
-        out += [f"<details style='background:{surface}'><summary>{_esc(c['q'])}</summary>{_esc(c['a'])}</details>"
+        out += [f"<details style='background:{surface}'><summary>{T(c['q'])}</summary>{T(c['a'])}</details>"
                 for c in res["flashcards"]]
         out.append("</div>")
     elif res.get("flashcards") == []:
@@ -185,7 +199,7 @@ def details_html(res: dict | None) -> str:
     return "".join(out)
 
 
-def ask(question, files, outputs, rate, font, size, spacing, bg, session):
+def ask(question, files, outputs, rate, font, size, spacing, bg, bionic, session):
     session = session or Session()
     question = (question or "").strip()
     paths = [f if isinstance(f, str) else getattr(f, "name", str(f)) for f in (files or [])]
@@ -193,7 +207,7 @@ def ask(question, files, outputs, rate, font, size, spacing, bg, session):
         question = "Summarize this simply." if paths else ""
     if not question:
         res = {"error": "Type a question first."}
-        return (render(res, font, size, spacing, bg), gr.update(visible=False), gr.update(visible=False), "", res,
+        return (render(res, font, size, spacing, bg, bionic), gr.update(visible=False), gr.update(visible=False), "", res,
                 session)
     try:
         a = answer(question, paths, session, force=[OUTPUTS[o] for o in outputs or []], tts_rate=int(rate))
@@ -208,7 +222,7 @@ def ask(question, files, outputs, rate, font, size, spacing, bg, session):
         vtt = str(Path(tempfile.mkdtemp(prefix="neuroassist_vtt_")) / "captions.vtt")
         Path(vtt).write_text(res["captions"], encoding="utf-8")
     sp = res.get("speech_path")
-    return (render(res, font, size, spacing, bg), gr.update(value=sp, visible=bool(sp)),
+    return (render(res, font, size, spacing, bg, bionic), gr.update(value=sp, visible=bool(sp)),
             gr.update(value=vtt, visible=bool(vtt)), details_html(res), res, session)
 
 
@@ -235,6 +249,7 @@ def build() -> gr.Blocks:
                     size = gr.Slider(14, 30, value=18, step=1, label="Text size")
                     spacing = gr.Slider(1.3, 2.4, value=1.7, step=0.1, label="Line spacing")
                     bg = gr.Radio(list(BACKGROUNDS), value="Cream", label="Background")
+                    bionic = gr.Checkbox(value=False, label="Bionic reading (bold the start of each word)")
                     rate = gr.Slider(-5, 5, value=0, step=1, label="Reading-aloud speed")
 
             with gr.Column(scale=3, min_width=360):
@@ -244,14 +259,14 @@ def build() -> gr.Blocks:
                 with gr.Accordion("How I got this answer", open=False):
                     details = gr.HTML()
 
-        inputs = [question, files, outputs, rate, font, size, spacing, bg, session]
+        inputs = [question, files, outputs, rate, font, size, spacing, bg, bionic, session]
         results = [result, speech, captions, details, last, session]
         ask_btn.click(ask, inputs, results)
         question.submit(ask, inputs, results)
         for btn, (_, text) in zip(quick, QUICK):
             btn.click(lambda t=text: t, None, question)
-        for ctl in (font, size, spacing, bg):      # restyle the last answer without asking again
-            ctl.change(render, [last, font, size, spacing, bg], result)
+        for ctl in (font, size, spacing, bg, bionic):      # restyle the last answer without asking again
+            ctl.change(render, [last, font, size, spacing, bg, bionic], result)
     return demo
 
 

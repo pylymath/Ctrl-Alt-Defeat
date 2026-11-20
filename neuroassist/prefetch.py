@@ -9,8 +9,9 @@ from . import config, llm
 def main():
     print(f"profile={config.PROFILE}")
     have = llm.installed_models()
-    for m in sorted({config.VISION_MODEL, config.TEXT_MODEL, config.CODE_MODEL, config.CARD_MODEL}):
-        print(f"  ollama {m:<28} {'OK' if m in have else 'MISSING -> ollama pull ' + m}")
+    for m in sorted({config.VISION_MODEL, config.TEXT_MODEL, config.QA_MODEL, config.CODE_MODEL, config.CARD_MODEL}):
+        ok = m in have or f"{m}:latest" in have      # imported models are listed as name:latest
+        print(f"  ollama {m:<28} {'OK' if ok else 'MISSING -> ollama pull ' + m}")
 
     t = time.perf_counter()
     from faster_whisper import WhisperModel
@@ -22,7 +23,7 @@ def main():
     pipeline("audio-classification", model=config.SOUND_MODEL, device="cpu")
     print(f"  sound   {config.SOUND_MODEL:<27} OK ({time.perf_counter() - t:.0f}s)")
 
-    if config.VISION_MODEL in have:
+    if config.VISION_MODEL in have or f"{config.VISION_MODEL}:latest" in have:
         print(f"  warm    {config.VISION_MODEL:<27} loaded in {llm.warm(config.VISION_MODEL):.1f}s")
 
 

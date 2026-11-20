@@ -467,7 +467,7 @@ text_notebook(
 MODEL_NAME  = "unsloth/Qwen2.5-3B-Instruct"
 RUN_NAME    = "neuro-doc-qa"
 OLLAMA_NAME = "neuro-doc-qa"
-APP_SETTING = "NEUROASSIST_TEXT_MODEL"
+APP_SETTING = "NEUROASSIST_QA_MODEL"
 
 # Copied from the app (neuroassist/tools/text_qa.py). Must match exactly.
 SYSTEM_TEMPLATE = @@SYSTEM@@
