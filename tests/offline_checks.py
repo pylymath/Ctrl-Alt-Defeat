@@ -6,6 +6,7 @@ model, so they run on any laptop in seconds with no Ollama and no GPU.
 They test our code (grounding checks, locating, linking, conflicts, retries, saving), not answer
 quality: that is what eval/run_eval.py on the demo laptop is for."""
 import json
+import re
 import os
 import sys
 import tempfile
@@ -286,6 +287,52 @@ a = pipeline.answer("Fix this code", [str(DEMO / "assignment.txt")], pipeline.Se
 check("a fix that drops the docstring is still tested on the original examples",
       a.evidence["fixed_run"]["examples"] and "1 of 2" in a.answer, a.answer)
 llm.chat_json, llm.chat = _pj, _pc
+
+# --- 8c. Eval scorer is fair both ways, guards, two-part questions, prompts don't leak answers -----------
+print("scorer fairness / guards / prompts")
+sys.path.insert(0, str(ROOT / "eval"))
+import scorers  # noqa: E402
+from neuroassist.tools import image as image_tool  # noqa: E402
+from neuroassist.tools.text_qa import unknown_numbers as _unk  # noqa: E402
+mv = {"reference_answer": "The green circle moves up."}
+qd = "Which direction does the circle move?"
+check("motion: a bare correct direction passes (colour not asked)", scorers.score_video(qd, "Up", mv)[0])
+check("motion: 'lower ... to the upper part' counts as up", scorers.score_video(
+    qd, "The green circle moves from the lower part of the frame to the upper part.", mv)[0])
+check("motion: a wrong direction still fails", not scorers.score_video(qd, "It moves down.", mv)[0]
+      and not scorers.score_video(qd, "The circle moves left.", mv)[0])
+fl = {"reference_answer": "A red circle appears first, then blue, and green appears last."}
+qf = "What color appears first, and what color appears last?"
+check("first/last: right colours in order pass without the middle one",
+      scorers.score_video(qf, "Red appears first and green appears last.", fl)[0])
+check("first/last: swapped order fails", not scorers.score_video(qf, "Green appears first and red appears last.", fl)[0])
+check("first/last: wrong last colour fails", not scorers.score_video(qf, "Red first and yellow last.", fl)[0])
+ct = {"reference_answer": "4 circles appear one at a time."}
+check("count: right number passes, wrong number fails",
+      scorers.score_video("How many shapes appear in this video?", "4 circles appear.", ct)[0]
+      and not scorers.score_video("How many shapes appear in this video?", "6 circles appear.", ct)[0])
+check("count: 'one at a time' and timestamps are not taken as the answer",
+      not scorers.score_video("How many shapes appear in this video?",
+                              "One red circle appears at t=0.8s, then a blue circle appears.", ct)[0])
+lt = {"reference_answer": "5 squares appear, 2 disappear, so 3 are left at the end."}
+check("count: the reference's final number is the answer", scorers.score_video(
+    "Several shapes appear and then some disappear. How many shapes are left at the end?", "3", lt)[0])
+check("guard: '4380' is NOT found in a text that says 438,000", _unk("4380 species of what?", "an estimated 438,000 species"))
+check("guard: '1760' IS found in a text that says 1,760", not _unk("What happened in 1760?", "In 1,760 the war"))
+check("two-part questions are split so both parts get answered", pipeline.split_two_part(
+    "What instrument did she play, and whose letter did she read?") == ["What instrument did she play?",
+                                                                       "Whose letter did she read?"])
+check("one-part questions are left alone", pipeline.split_two_part("Who wrote the letter and the poem?")
+      == ["Who wrote the letter and the poem?"])
+_pack = ROOT.parent / "archive (1)" / "answers.json"
+if _pack.exists():      # practice pack lives outside the repo; only checkable where it is present
+    _refs = " ".join((a.get("reference_answer") or "").lower() for a in json.loads(_pack.read_text(encoding="utf-8")))
+    _examples = [e for e in re.findall(r"'([^']+)'", video.FULL_ANSWER + video.HINTS["count"]
+                                       + image_tool.PROMPTS["identify"]) if len(e.split()) >= 2]   # not field names
+    check("prompt examples share no answer with the practice pack",
+          _examples and not any(e.lower().strip(". ") in _refs for e in _examples), _examples)
+else:
+    print("  skip prompt-leak check (practice pack not on this machine)")
 
 # --- 9. Installer pieces (no downloads) ------------------------------------------------------------------
 print("installer")

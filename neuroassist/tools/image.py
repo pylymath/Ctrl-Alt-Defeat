@@ -53,7 +53,8 @@ def count(question: str, img: bytes) -> Answer:
 PROMPTS = {
     "read_text": "Read the text in this image exactly as written. In 'answer' give only the main text; "
                  "in 'detail' say where it appears.",
-    "identify": "{q}\nIn 'answer' name the main object in a few words (brand or type if visible). "
+    "identify": "{q}\nIn 'answer' say WHAT the main object is in a few words, and add the brand if one is "
+                "visible (for example 'a Canon camera' or 'a wooden ladder'): never only a brand name. "
                 "In 'detail' give one short sentence of description.",
     "describe": "{q}\nIn 'answer' give a direct, short answer. In 'detail' give one or two sentences "
                 "describing what is in the image.",

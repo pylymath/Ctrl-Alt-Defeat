@@ -12,8 +12,9 @@ NUM_WORDS = {w: i for i, w in enumerate(
 STOP = set("a an the is are was were it this that of to in on and or with by at for from as be "
            "there its it's sound sounds like".split())
 COLORS = {"red", "blue", "green", "yellow", "orange", "purple", "pink", "black", "white", "gray", "grey", "brown"}
-MOTION_GROUPS = [{"left"}, {"right"}, {"up", "upward", "upwards", "rises", "rising"},
-                 {"down", "downward", "downwards", "falls", "falling"},
+MOTION_GROUPS = [{"left", "leftward", "leftwards"}, {"right", "rightward", "rightwards"},
+                 {"up", "upward", "upwards", "rises", "rising", "upper", "top"},
+                 {"down", "downward", "downwards", "falls", "falling", "bottom"},
                  {"taller", "grows", "growing", "higher", "increases"}, {"shorter", "shrinks", "lower", "decreases"},
                  {"toward", "towards", "closer", "approach", "together"}, {"touch", "touches", "collide", "meet", "hit"}]
 
@@ -112,16 +113,33 @@ def score_text(q, pred, ans, abstained):
 def score_video(q, pred, ans):
     ref = ans["reference_answer"]
     if re.search(r"how many|what number", q, re.I):
-        r = ints(ref)
-        ok = bool(r) and r[-1] in ints(pred)
+        # "one at a time" / "one by one" are not counts, and "t=0.8s" timestamps are not answers.
+        def clean(s):
+            s = re.sub(r"\bone (at a time|by one|after (another|the other))\b", " ", str(s), flags=re.I)
+            return re.sub(r"\bt\s*=\s*\d+(\.\d+)?\s*s?\b|\b\d+\.\d+\s*s\b", " ", s, flags=re.I)
+        r, p = ints(clean(ref)), ints(clean(pred))
+        # The reference's final number is the answer ("5 appear, 2 disappear, so 3 are left"); the prediction
+        # is judged by the number it leads with (any number appearing somewhere is not enough).
+        ok = bool(r and p) and p[0] == r[-1]
         return ok, float(ok), "number"
-    keys = [{c} for c in COLORS if re.search(rf"\b{c}\b", ref.lower())]
+    pl = pred.lower()
+    ref_colors = sorted((m.start(), m.group(0)) for c in COLORS for m in re.finditer(rf"\b{c}\b", ref.lower()))
+    asks_colour = bool(re.search(r"colou?r", q, re.I))
+    if asks_colour and re.search(r"\bfirst\b", q, re.I) and re.search(r"\blast\b", q, re.I) and len(ref_colors) >= 2:
+        # "What colour appears first and last?": the first and last colours must both be named, in that order.
+        # The colours in between are not asked for, so they are not required.
+        first, last = ref_colors[0][1], ref_colors[-1][1]
+        pf, pz = re.search(rf"\b{first}\b", pl), re.search(rf"\b{last}\b", pl)
+        ok = bool(pf and pz and pf.start() < pz.start())
+        return ok, float(ok), "first/last in order"
+    # Colours are required only when the question is about colour ("Which way does the square move?" is
+    # answered by the direction, whether or not the answer repeats the square's colour).
+    keys = [{c} for c in dict.fromkeys(c for _, c in ref_colors)] if asks_colour else []
     keys += [{w.lower()} for w in re.findall(r'"([^"]+)"', ref)]
     keys += [g for g in MOTION_GROUPS if any(re.search(rf"\b{w}\b", ref.lower()) for w in g)]
     if not keys:
         f1 = token_f1(pred, ref)
         return f1 >= 0.4, round(f1, 3), "token F1"
-    pl = pred.lower()
     hit = sum(any(re.search(rf"\b{re.escape(w)}\b", pl) for w in g) for g in keys)
     rec = hit / len(keys)
     return rec >= 0.67, round(rec, 3), "key-term recall"

@@ -15,7 +15,8 @@ FRAMES = {"type": "object", "required": ["frames"], "properties": {"frames": {"t
 
 HINTS = {
     "count_events": "Compare consecutive frames carefully and count each event once.",
-    "count": "Things may appear one at a time; count every distinct one across all frames.",
+    "count": "Things may appear one at a time; count every distinct one across all frames. Start your answer "
+             "with the total as digits, for example '5 triangles appear one at a time.'",
     "sequence": "Look at EVERY frame from the first to the last. If colours or things appear one after another, "
                 "list them all in the order they appear, then say which was first and which was last.",
     "motion": "Compare positions and sizes between the first and last frames, and name the direction in plain "

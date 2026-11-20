@@ -36,6 +36,7 @@ class Session:
 
 
 _default_session = Session()
+DEFAULT_QA_TASK = "qa"
 POST_STEPS = ("card", "plain", "literal", "flashcards", "captions", "tts")
 
 
@@ -92,6 +93,22 @@ def split_questions(question: str) -> list[str]:
     if len(parts) < 2 or any(len(p.split()) < 3 for p in parts):
         return [question]
     return parts
+
+
+TWO_PART = re.compile(r"^(?P<a>.+?),?\s+and\s+(?P<b>(?:who|whom|whose|what|which|where|when|why|how)\b.+\?)\s*$", re.I)
+
+
+def split_two_part(question: str) -> list[str]:
+    """'What instrument did she play, and whose letter did she read?' -> two questions, so a document /
+    transcript answer covers BOTH parts (the QA model answers one thing per call)."""
+    m = TWO_PART.match(question.strip())
+    if not m:
+        return [question]
+    a, b = m.group("a").strip().rstrip(",") + "?", m.group("b").strip()
+    b = b[0].upper() + b[1:]
+    if len(a.split()) < 3 or len(b.split()) < 3:
+        return [question]
+    return [a, b]
 
 
 def _core(question: str, files: list, session: Session, trace: list, label: str = "answer") -> Answer:
@@ -244,7 +261,10 @@ def answer(question: str, files: list | tuple = (), session: Session | None = No
                      evidence={"per_file": [{"file": n, "answer": a.answer, "evidence": a.evidence} for n, a in parts]})
         ans.route = Route("multi", "combine", router.route(question, files[:1]).modifiers, "rules")
         ans.abstain = all(a.abstain for _, a in parts)
-    elif len(qs := split_questions(question)) > 1:   # several questions about one input
+    elif len(qs := split_questions(question)) > 1 or (
+            files and router.route(question, files).kind in ("document", "audio")
+            and router.route(question, files).task == DEFAULT_QA_TASK
+            and len(qs := split_two_part(question)) > 1):   # several questions about one input
         subs = [_core(q, files, session, trace, f"question {i + 1}") for i, q in enumerate(qs)]
         ans = Answer("\n".join(f"{i + 1}. {a.answer}" for i, a in enumerate(subs)),
                      evidence={"sub_questions": [{"question": q, "answer": a.answer, "evidence": a.evidence}

@@ -50,7 +50,8 @@ def unknown_numbers(question: str, doc: str) -> list[str]:
     """Numbers in the question that never appear in the source (e.g. 1706 when the text says 1760)."""
     nums = re.findall(r"\b\d[\d,.]*\d\b|\b\d\b", question)
     d = doc.replace(",", "")
-    return [n for n in nums if n.replace(",", "") not in d]
+    # Whole-number match: "4380" must not count as present just because the text says "438000".
+    return [n for n in nums if not re.search(rf"(?<![\d.]){re.escape(n.replace(',', ''))}(?![\d])", d)]
 
 
 def answer_from_text(question: str, doc: str, source: str = "document") -> Answer:
